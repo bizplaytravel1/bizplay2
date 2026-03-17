@@ -1,0 +1,4060 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>출장관리 AI 챗봇 v2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+:root{--bg:#f0f4ff;--surface:#ffffff;--surface2:#e8eef8;--border:#d0d9ee;--accent:#2563eb;--accent2:#059669;--text:#1a1f36;--text2:#4b5680;--text3:#94a3c0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:200}
+.logo-icon{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.logo-text{font-size:15px;font-weight:700}.logo-sub{font-size:11px;color:var(--text2);margin-top:1px}
+.hdr-right{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+#cache-badge{background:rgba(34,197,94,.15);color:#16a34a;border:1px solid rgba(34,197,94,.3);transition:all .2s}
+#cache-badge:hover{background:rgba(34,197,94,.25);transform:scale(1.05)}
+#cache-badge.miss{background:rgba(59,130,246,.12);color:#2563eb;border:1px solid rgba(59,130,246,.25)}
+.badge{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--text);font-family:'IBM Plex Mono',monospace;white-space:nowrap;font-weight:600}
+.badge span{color:var(--accent2);font-weight:600}
+.top-nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;position:sticky;top:53px;z-index:199;display:flex;overflow-x:auto}
+.nav-tab{padding:12px 18px;font-size:13px;font-family:'Noto Sans KR',sans-serif;color:var(--text3);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap}
+.nav-tab:hover{color:var(--text2)}.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.page{display:none}.page.active{display:block;overflow-y:auto;height:calc(100vh - 110px);position:relative}
+.main{max-width:900px;margin:0 auto;padding:28px 24px 80px}
+.search-label{font-size:13px;color:var(--text2);margin-bottom:10px}
+.search-box{display:flex;gap:10px;margin-bottom:12px}
+.search-input-wrap{flex:1;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;display:flex;align-items:center;padding:0 16px;transition:border-color .2s}
+.search-input-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.12)}
+.si-icon{color:var(--text3);margin-right:10px;font-size:16px}
+.search-input{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:15px;padding:15px 0}
+.search-input::placeholder{color:var(--text3)}
+.search-btn{background:var(--accent);color:#fff;border:none;cursor:pointer;border-radius:12px;padding:0 22px;font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:600;transition:background .2s;white-space:nowrap}
+.search-btn:hover{background:#3a7ae8}.search-btn:disabled{background:var(--surface2);color:var(--text3);cursor:not-allowed}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+.filter-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:20px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s}
+.filter-btn:hover{border-color:var(--accent);color:var(--accent)}.filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.chips-label{font-size:12px;color:var(--text3);margin-bottom:8px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+.chip{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s}
+.chip:hover{border-color:var(--accent2);color:var(--accent2)}
+.ai-box{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:18px 22px;margin-bottom:22px;display:none}
+.ai-box.on{display:block;animation:fadeIn .3s ease}
+.ai-hdr{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.ai-badge{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:.05em}
+.ai-sub{font-size:13px;color:var(--text2)}.ai-text{font-size:14px;line-height:1.8;color:var(--text);white-space:pre-wrap}
+.ai-loading{display:flex;align-items:center;gap:10px;color:var(--text2);font-size:14px}
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+.res-hdr{display:none;justify-content:space-between;align-items:center;margin-bottom:14px}
+.res-count{font-size:13px;color:var(--text2)}.res-count strong{color:var(--accent);font-family:'IBM Plex Mono',monospace}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden;transition:border-color .15s;cursor:pointer}
+.card:hover{border-color:var(--accent)}.card.open{border-color:var(--accent2)}
+.card-top{padding:14px 18px;display:flex;align-items:flex-start;gap:10px}
+.card-tags{display:flex;gap:5px;flex-shrink:0;margin-top:2px}
+.tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;letter-spacing:.04em;white-space:nowrap}
+.t-manual{background:#dbeafe;color:#1d4ed8}.t-triplus{background:#d1fae5;color:#065f46}.t-occupi{background:#ffedd5;color:#92400e}
+.t-overseas{background:#dcfce7;color:#166534}.t-jungbig{background:#fef9c3;color:#854d0e}.t-sukbak{background:#fce7f3;color:#9d174d}
+.t-route{background:#1e2a3d;color:#1d4ed8}.t-transit{background:#ccfbf1;color:#115e59}
+.card-body{flex:1;min-width:0}.card-src{font-size:11px;color:var(--text3);margin-bottom:3px}
+.card-q{font-size:14px;color:var(--text);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card-q.open{display:block}
+.card-score{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.sc-wrap{display:flex;align-items:center;gap:6px}
+.sc-val{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent2);font-weight:600}
+.sc-bar{width:46px;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.sc-fill{height:100%;background:var(--accent2);border-radius:2px}
+.arrow{color:var(--text3);font-size:11px;margin-top:2px}
+.card-ans{display:none;padding:0 18px 14px;border-top:1px solid var(--border)}
+.card-ans.open{display:block;padding-top:14px;animation:fadeIn .2s ease}
+.ans-label{font-size:11px;color:var(--accent2);font-weight:600;margin-bottom:6px;letter-spacing:.05em}
+.ans-text{font-size:13px;line-height:1.85;color:var(--text2);white-space:pre-wrap;word-break:break-word}
+.remark{font-size:12px;color:var(--text3);margin-top:8px;border-top:1px solid var(--border);padding-top:8px}
+.welcome{text-align:center;padding:56px 20px;color:var(--text3)}.welcome-icon{font-size:44px;margin-bottom:14px}
+.welcome-title{font-size:17px;color:var(--text2);font-weight:600;margin-bottom:8px}.welcome-sub{font-size:14px;line-height:1.7}
+.no-results{text-align:center;padding:44px 20px;color:var(--text3);font-size:14px;display:none}
+.init-loading{text-align:center;padding:40px;color:var(--text3);font-size:14px}
+.cat-page{max-width:1100px;margin:0 auto;padding:28px 24px 80px}
+.cat-page h2{font-size:17px;font-weight:700;margin-bottom:6px}
+.cat-desc{font-size:13px;color:var(--text2);margin-bottom:18px}
+.cat-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.cf{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:20px;padding:4px 14px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s}
+.cf:hover{border-color:var(--accent);color:var(--accent)}.cf.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tbl-search{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 16px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:14px;outline:none;margin-bottom:10px;transition:border-color .2s}
+.tbl-search:focus{border-color:var(--accent)}.tbl-search::placeholder{color:var(--text3)}
+.tbl-count{font-size:12px;color:var(--text3);margin-bottom:10px;font-family:'IBM Plex Mono',monospace}
+.tbl-count span{color:var(--accent)}
+.dtbl{width:100%;border-collapse:collapse;font-size:13px}
+.dtbl th{background:var(--surface2);color:var(--text2);padding:10px 14px;text-align:left;font-weight:600;font-size:12px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:5}
+.dtbl td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top;line-height:1.6}
+.dtbl tr:hover td{background:var(--surface2)}
+.amt{font-family:'IBM Plex Mono',monospace;color:var(--accent2);font-weight:600;white-space:nowrap}
+.s-on{color:var(--accent2)}.s-off{color:var(--text3)}
+.btype{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap}
+.btype-기타증빙{background:#dbeafe;color:#1d4ed8}.btype-마이데이터{background:#d1fae5;color:#065f46}
+
+.card-img-wrap{margin:0 18px 14px;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+.card-img-wrap img{width:100%;display:block;max-height:400px;object-fit:contain;background:var(--surface2)}
+.card-img-caption{font-size:11px;color:var(--text3);padding:6px 10px;background:var(--surface2);text-align:center;border-top:1px solid var(--border)}
+
+mark{background:rgba(79,142,247,.25);color:var(--accent);border-radius:3px;padding:0 2px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+@media(max-width:600px){.main,.cat-page{padding:18px 14px 60px}header{padding:12px 14px}.hdr-right{display:none}}
+
+  /* ── 참고자료 이미지 ── */
+  .ref-imgs { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .ref-thumb {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    cursor: pointer; transition: all .2s; flex-shrink: 0;
+  }
+  .ref-thumb:hover { border-color: var(--accent); box-shadow: 0 4px 16px rgba(79,142,247,.3); transform: scale(1.02); }
+  .ref-thumb img { display: block; height: 80px; width: auto; max-width: 200px; object-fit: cover; }
+  .ref-thumb-label { font-size: 10px; color: var(--text3); padding: 3px 8px; background: var(--surface2); text-align: center; }
+  /* ── 이미지 모달 ── */
+  .img-modal {
+    display: none; position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,.85); align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .img-modal.open { display: flex; animation: fadeIn .2s ease; }
+  .img-modal img { max-width: 95vw; max-height: 90vh; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.8); }
+  .img-modal-close {
+    position: fixed; top: 16px; right: 20px; font-size: 28px; color: #fff;
+    cursor: pointer; background: rgba(15,23,42,.15); border-radius: 50%;
+    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+    transition: background .2s;
+  }
+  .img-modal-close:hover { background: rgba(240,123,123,.7); }
+  .img-modal-caption { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 13px; color: rgba(255,255,255,.7); background: rgba(0,0,0,.6); padding: 6px 16px; border-radius: 20px; white-space: nowrap; }
+  @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+
+
+/* 해외출장 카드 */
+.ov-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden;transition:box-shadow .2s}
+.ov-card:hover{box-shadow:0 4px 16px rgba(37,99,235,.10);border-color:var(--accent)}
+.ov-card-head{padding:14px 18px 10px;display:flex;align-items:flex-start;gap:10px;border-bottom:1px solid var(--border)}
+.ov-cat{flex-shrink:0;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;background:#e0f2fe;color:#075985;white-space:nowrap}
+.ov-title{font-size:14px;font-weight:600;color:var(--text);line-height:1.5}
+.ov-body{padding:14px 18px;font-size:13px;color:var(--text2);line-height:1.8;white-space:pre-wrap}
+
+.ans-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.copy-btn{font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent);background:#eff6ff}
+
+
+/* ── 국내출장 매뉴얼 전용 CSS ── */
+
+  :root{
+    --primary:#003087;
+    --accent:#00AAD2;
+    --accent2:#E8F4FD;
+    --dark:#0A0E1A;
+    --mid:#1E2A3A;
+    --text:#1a1a2e;
+    --muted:#6B7A99;
+    --light:#F4F7FF;
+    --white:#ffffff;
+    --success:#00875A;
+    --danger:#D93025;
+    --warning:#F59E0B;
+    --border:#DDE3F0;
+  }
+  .dom-manual *{margin:0;padding:0;box-sizing:border-box}
+  .dom-manual body{
+    font-family:'Noto Sans KR',sans-serif;
+    background:var(--light);
+    color:var(--text);
+    line-height:1.7;
+  }
+  .dom-manual .hero{
+    background:linear-gradient(135deg,var(--dark) 0%,var(--mid) 50%,#1a3a5c 100%);
+    color:white;
+    padding:64px 40px 52px;
+    position:relative;
+    overflow:hidden;
+  }
+  .dom-manual .hero::before{
+    content:'';
+    position:absolute;
+    top:-70px; right:-70px;
+    width:320px; height:320px;
+    border-radius:50%;
+    background:radial-gradient(circle,rgba(0,170,210,0.22) 0%,transparent 70%);
+  }
+  .dom-manual .hero::after{
+    content:'';
+    position:absolute;
+    bottom:-50px; left:8%;
+    width:220px; height:220px;
+    border-radius:50%;
+    background:radial-gradient(circle,rgba(0,48,135,0.42) 0%,transparent 70%);
+  }
+  .dom-manual .hero-inner{
+    max-width:980px;
+    margin:0 auto;
+    position:relative;
+    z-index:1;
+  }
+  .dom-manual .hero-badge{
+    display:inline-block;
+    background:rgba(0,170,210,0.2);
+    border:1px solid rgba(0,170,210,0.45);
+    color:var(--accent);
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    padding:6px 14px;
+    border-radius:20px;
+    margin-bottom:18px;
+  }
+  .dom-manual .hero h1{
+    font-size:38px;
+    font-weight:900;
+    letter-spacing:-1px;
+    line-height:1.18;
+    margin-bottom:12px;
+  }
+  .dom-manual .hero h1 span{color:var(--accent)}
+  .dom-manual .hero-sub{
+    font-size:15px;
+    color:rgba(255,255,255,0.72);
+    max-width:760px;
+  }
+  .dom-manual .hero-meta{
+    display:flex;
+    gap:22px;
+    margin-top:26px;
+    flex-wrap:wrap;
+  }
+  .dom-manual .hero-meta-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    color:rgba(255,255,255,0.6);
+  }
+  .dom-manual .hero-meta-item strong{color:rgba(255,255,255,0.9)}
+  .dom-manual .toc-bar{
+    background:var(--white);
+    border-bottom:2px solid var(--border);
+    padding:0 40px;
+    position:sticky;
+    top:0;
+    z-index:100;
+    box-shadow:0 2px 12px rgba(0,0,0,0.06);
+  }
+  .dom-manual .toc-inner{
+    max-width:980px;
+    margin:0 auto;
+    display:flex;
+    gap:4px;
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .dom-manual .toc-inner::-webkit-scrollbar{display:none}
+  .dom-manual .toc-item{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    padding:16px 14px;
+    font-size:13px;
+    font-weight:500;
+    color:var(--muted);
+    white-space:nowrap;
+    text-decoration:none;
+    border-bottom:2px solid transparent;
+    margin-bottom:-2px;
+    transition:all .2s;
+  }
+  .dom-manual .toc-item:hover{color:var(--primary);border-color:var(--accent)}
+  .dom-manual .toc-num{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    background:var(--light);
+    padding:2px 6px;
+    border-radius:4px;
+  }
+  .dom-manual .main{
+    max-width:980px;
+    margin:0 auto;
+    padding:40px 40px 80px;
+  }
+  .dom-manual .section{
+    margin-bottom:54px;
+    animation:fadeUp .45s ease both;
+  }
+  @keyframes fadeUp{
+    from{opacity:0;transform:translateY(16px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+  .dom-manual .section-header{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-bottom:20px;
+    padding-bottom:14px;
+    border-bottom:2px solid var(--border);
+  }
+  .dom-manual .section-num{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    font-weight:600;
+    color:var(--accent);
+    background:var(--accent2);
+    padding:4px 10px;
+    border-radius:6px;
+    letter-spacing:1px;
+  }
+  .dom-manual .section-title{
+    font-size:22px;
+    font-weight:800;
+    color:var(--primary);
+  }
+  .dom-manual .section-icon{
+    font-size:22px;
+    margin-left:auto;
+  }
+  .dom-manual .highlight{
+    background:linear-gradient(135deg,var(--primary) 0%,#005580 100%);
+    color:white;
+    border-radius:16px;
+    padding:28px;
+    margin-bottom:14px;
+  }
+  .dom-manual .highlight h3{
+    font-size:16px;
+    font-weight:700;
+    margin-bottom:12px;
+    opacity:.95;
+  }
+  .dom-manual .highlight-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:12px;
+  }
+  .dom-manual .highlight-item{
+    background:rgba(255,255,255,.1);
+    border:1px solid rgba(255,255,255,.15);
+    border-radius:10px;
+    padding:14px 16px;
+    text-align:center;
+  }
+  .dom-manual .highlight-item .val{
+    font-size:24px;
+    font-weight:900;
+    color:var(--accent);
+    display:block;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .dom-manual .highlight-item .lbl{
+    font-size:12px;
+    opacity:.76;
+    margin-top:4px;
+  }
+  .dom-manual .info-box{
+    background:var(--white);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:24px 28px;
+    margin-bottom:14px;
+  }
+  .dom-manual .info-box.accent{border-left:4px solid var(--accent)}
+  .dom-manual .info-box.primary{border-left:4px solid var(--primary)}
+  .dom-manual .info-box.warning{border-left:4px solid var(--warning);background:#FFFBF0}
+  .dom-manual .info-box.danger{border-left:4px solid var(--danger);background:#FFF5F5}
+  .dom-manual .info-box.success{border-left:4px solid var(--success);background:#F0FAF5}
+  .dom-manual .notice{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    background:#FFFBF0;
+    border:1px solid #FDE68A;
+    border-radius:10px;
+    padding:14px 18px;
+    font-size:13px;
+    color:#78350F;
+    margin-top:12px;
+  }
+  .dom-manual .notice-icon{font-size:18px;flex-shrink:0}
+  .dom-manual .card-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:14px;
+    margin-bottom:16px;
+  }
+  .dom-manual .card{
+    background:var(--white);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:20px;
+    transition:all .2s;
+  }
+  .dom-manual .card:hover{
+    border-color:var(--accent);
+    box-shadow:0 4px 20px rgba(0,170,210,0.12);
+    transform:translateY(-2px);
+  }
+  .dom-manual .card-icon{font-size:28px;margin-bottom:10px}
+  .dom-manual .card-label{
+    font-size:12px;
+    font-weight:700;
+    color:var(--muted);
+    letter-spacing:1px;
+    text-transform:uppercase;
+    margin-bottom:4px;
+  }
+  .dom-manual .card-value{
+    font-size:17px;
+    font-weight:700;
+    color:var(--primary);
+  }
+  .dom-manual .card-desc{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:6px;
+    line-height:1.5;
+  }
+  .dom-manual .table-wrap{
+    background:var(--white);
+    border:1px solid var(--border);
+    border-radius:14px;
+    overflow:hidden;
+    margin-bottom:14px;
+  }
+  .dom-manual table{width:100%;border-collapse:collapse}
+  .dom-manual th{
+    background:var(--primary);
+    color:white;
+    font-size:13px;
+    font-weight:600;
+    padding:13px 18px;
+    text-align:left;
+  }
+  .dom-manual td{
+    font-size:13px;
+    padding:12px 18px;
+    border-bottom:1px solid var(--border);
+    vertical-align:top;
+  }
+  .dom-manual tr:last-child td{border-bottom:none}
+  .dom-manual tr:nth-child(even) td{background:#FAFBFF}
+  .dom-manual tr:hover td{background:var(--accent2)}
+  .dom-manual .steps{display:flex;flex-direction:column;gap:0}
+  .dom-manual .step{display:flex;gap:20px;position:relative}
+  .dom-manual .step:not(:last-child)::before{
+    content:'';
+    position:absolute;
+    left:20px; top:44px; bottom:0;
+    width:2px; background:var(--border);
+  }
+  .dom-manual .step-num{
+    flex-shrink:0;
+    width:40px; height:40px;
+    background:var(--primary);
+    color:white;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:14px;
+    font-weight:600;
+    position:relative;
+    z-index:1;
+  }
+  .dom-manual .step-body{flex:1;padding-bottom:28px}
+  .dom-manual .step-title{
+    font-size:15px;
+    font-weight:700;
+    color:var(--primary);
+    margin-bottom:6px;
+    padding-top:8px;
+  }
+  .dom-manual .step-desc{
+    font-size:13px;
+    color:var(--muted);
+    line-height:1.7;
+  }
+  .dom-manual .step-tag{
+    display:inline-block;
+    font-size:11px;
+    font-weight:700;
+    padding:2px 8px;
+    border-radius:4px;
+    margin-top:6px;
+  }
+  .dom-manual .step-tag.blue{background:var(--accent2);color:var(--primary)}
+  .dom-manual .step-tag.gray{background:var(--light);color:var(--muted)}
+  .dom-manual .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    font-size:11px;
+    font-weight:700;
+    padding:3px 10px;
+    border-radius:20px;
+  }
+  .dom-manual .badge.yes{background:#E6F9F0;color:var(--success)}
+  .dom-manual .badge.no{background:#FDECEA;color:var(--danger)}
+  .dom-manual .badge.cond{background:#FFF8E6;color:#B45309}
+  .dom-manual .check-list{list-style:none;display:flex;flex-direction:column;gap:10px}
+  .dom-manual .check-list li{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    font-size:14px;
+    line-height:1.7;
+  }
+  .dom-manual .check-list li::before{
+    content:'✓';
+    flex-shrink:0;
+    width:22px; height:22px;
+    background:var(--primary);
+    color:white;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:11px;
+    font-weight:700;
+    margin-top:1px;
+  }
+  .dom-manual .x-list li::before{content:'✗';background:var(--danger)!important}
+  .dom-manual .qa-list{display:flex;flex-direction:column;gap:12px}
+  .dom-manual .qa-item{
+    background:var(--white);
+    border:1px solid var(--border);
+    border-radius:14px;
+    overflow:hidden;
+    transition:all .2s;
+  }
+  .dom-manual .qa-item:hover{border-color:var(--accent)}
+  .dom-manual .qa-q{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    padding:18px 22px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .dom-manual .qa-q-mark{
+    flex-shrink:0;
+    width:26px; height:26px;
+    background:var(--primary);
+    color:white;
+    border-radius:6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    font-weight:700;
+    margin-top:1px;
+  }
+  .dom-manual .qa-q-text{
+    flex:1;
+    font-size:14px;
+    font-weight:600;
+    color:var(--text);
+    line-height:1.55;
+  }
+  .dom-manual .qa-arrow{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:5px;
+    transition:transform .2s;
+  }
+  .dom-manual .qa-item.open .qa-arrow{transform:rotate(180deg)}
+  .dom-manual .qa-a{
+    display:none;
+    padding:0 22px 18px 60px;
+    font-size:13px;
+    color:var(--muted);
+    line-height:1.75;
+    border-top:1px solid var(--border);
+    padding-top:16px;
+  }
+  .dom-manual .qa-a-mark{
+    display:inline-block;
+    font-weight:700;
+    color:var(--accent);
+    margin-right:4px;
+  }
+  .dom-manual .qa-item.open .qa-a{display:block}
+  .dom-manual .small{
+    font-size:12px;
+    color:var(--muted);
+  }
+  .dom-manual .footer{
+    background:var(--dark);
+    color:rgba(255,255,255,.45);
+    text-align:center;
+    padding:30px;
+    font-size:12px;
+    letter-spacing:.4px;
+  }
+  .dom-manual .footer strong{color:rgba(255,255,255,.8)}
+  @media (max-width:700px){
+    .dom-manual .hero{padding:44px 20px 38px}
+    .dom-manual .hero h1{font-size:28px}
+    .dom-manual .toc-bar{padding:0 16px}
+    .dom-manual .main{padding:24px 16px 60px}
+    .dom-manual th, .dom-manual td{padding:10px 12px}
+  }
+
+/* ── 국내출장 매뉴얼 탭 스크롤 ── */
+.dom-manual {padding:0 0 40px;}
+
+/* ══════════════════════════════════════════
+   챗봇 UI (v2)
+══════════════════════════════════════════ */
+/* 검색 페이지를 챗봇으로 교체하므로 기존 search 관련 일부 숨김 */
+#page-search .search-label,
+#page-search .search-box,
+#page-search .filters,
+#page-search .chips-label,
+#page-search .chips,
+#page-search .ai-box,
+#page-search .res-hdr,
+#page-search #results,
+#page-search #noResults,
+#page-search #welcome {
+  display: none !important;
+}
+#page-search .main { padding: 0; max-width: 100%; }
+
+/* 챗봇 래퍼 */
+.chat-wrap {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 110px);
+  background: var(--bg);
+}
+
+/* 메시지 스크롤 영역 */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 0 12px;
+  scroll-behavior: smooth;
+}
+.chat-messages::-webkit-scrollbar { width: 6px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* 환영 화면 */
+.chat-welcome {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 24px;
+  text-align: center;
+}
+.chat-welcome-icon {
+  width: 64px; height: 64px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 20px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  margin: 0 auto 20px;
+  box-shadow: 0 8px 24px rgba(37,99,235,.25);
+}
+.chat-welcome h2 { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.chat-welcome p  { font-size: 14px; color: var(--text2); line-height: 1.7; margin-bottom: 28px; }
+.chat-suggest-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  text-align: left;
+  margin-bottom: 0;
+}
+@media(max-width:600px){ .chat-suggest-grid { grid-template-columns: 1fr; } }
+.chat-suggest-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text2);
+  cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: all .18s;
+  text-align: left;
+  line-height: 1.5;
+}
+.chat-suggest-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(37,99,235,.04);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37,99,235,.1);
+}
+.chat-suggest-btn .sq-icon { font-size: 16px; display: block; margin-bottom: 4px; }
+
+/* 메시지 버블 */
+.msg-row {
+  max-width: 800px;
+  margin: 0 auto 18px;
+  padding: 0 24px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  animation: msgIn .22s ease;
+}
+@keyframes msgIn {
+  from { opacity:0; transform: translateY(10px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+.msg-row.user { flex-direction: row-reverse; }
+
+.msg-avatar {
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.msg-avatar.ai  { background: linear-gradient(135deg, var(--accent), var(--accent2)); box-shadow: 0 2px 8px rgba(37,99,235,.2); }
+.msg-avatar.usr { background: var(--surface2); border: 1px solid var(--border); }
+
+.msg-bubble {
+  max-width: calc(100% - 46px);
+  border-radius: 16px;
+  padding: 14px 18px;
+  font-size: 14px;
+  line-height: 1.75;
+  word-break: break-word;
+}
+.msg-row.ai  .msg-bubble {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top-left-radius: 4px;
+  color: var(--text);
+}
+.msg-row.user .msg-bubble {
+  background: var(--accent);
+  color: #fff;
+  border-top-right-radius: 4px;
+  box-shadow: 0 2px 12px rgba(37,99,235,.25);
+}
+
+/* AI 답변 내부 스타일 */
+.msg-bubble .ai-answer { white-space: pre-wrap; }
+.msg-bubble .ai-sources {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.msg-bubble .ai-sources-title {
+  font-size: 11px;
+  color: var(--text3);
+  font-weight: 700;
+  letter-spacing: .04em;
+  margin-bottom: 8px;
+}
+.src-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.src-card:last-child { margin-bottom: 0; }
+.src-card:hover { border-color: var(--accent); background: rgba(37,99,235,.03); }
+.src-card-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 6px;
+}
+.src-card-head .tag { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 700; }
+.src-card-q  { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.4; }
+.src-card-a  { font-size: 12px; color: var(--text2); margin-top: 5px; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.src-card-score { font-size: 10px; color: var(--text3); font-family: 'IBM Plex Mono', monospace; margin-left: auto; flex-shrink: 0; }
+.src-card-detail { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.src-card.open .src-card-detail { display: block; }
+.src-card.open .src-card-a { -webkit-line-clamp: unset; }
+.src-card-detail .full-ans { font-size: 13px; color: var(--text); line-height: 1.75; white-space: pre-wrap; }
+.src-card-detail .full-remark { font-size: 12px; color: var(--text2); margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+
+/* 로딩 타이핑 */
+.typing-dots {
+  display: inline-flex; gap: 4px; align-items: center; padding: 2px 0;
+}
+.typing-dots span {
+  width: 7px; height: 7px;
+  background: var(--text3);
+  border-radius: 50%;
+  animation: dotBounce .9s infinite ease-in-out;
+}
+.typing-dots span:nth-child(2) { animation-delay: .15s; }
+.typing-dots span:nth-child(3) { animation-delay: .30s; }
+@keyframes dotBounce {
+  0%,60%,100% { transform: translateY(0); opacity:.4; }
+  30% { transform: translateY(-5px); opacity:1; }
+}
+
+/* 입력 영역 */
+.chat-input-area {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 14px 24px 18px;
+}
+.chat-input-inner {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.chat-textarea {
+  flex: 1;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-family: 'Noto Sans KR', sans-serif;
+  color: var(--text);
+  resize: none;
+  outline: none;
+  min-height: 48px;
+  max-height: 140px;
+  line-height: 1.6;
+  transition: border-color .2s, box-shadow .2s;
+  overflow-y: auto;
+}
+.chat-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+}
+.chat-textarea::placeholder { color: var(--text3); }
+.chat-send-btn {
+  width: 48px; height: 48px;
+  background: var(--accent);
+  border: none;
+  border-radius: 13px;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .18s;
+  flex-shrink: 0;
+}
+.chat-send-btn:hover { background: #1d56d8; transform: scale(1.05); }
+.chat-send-btn:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; transform: none; }
+.chat-input-hint {
+  max-width: 800px;
+  margin: 6px auto 0;
+  font-size: 11px;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.chat-input-hint .hint-filter {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.hint-filter-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 11px;
+  color: var(--text3);
+  cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: all .15s;
+}
+.hint-filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+.hint-filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* 이미지 썸네일 (답변 내) */
+.msg-bubble .ref-imgs { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+.msg-bubble .ref-thumb {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all .15s;
+}
+.msg-bubble .ref-thumb:hover { border-color: var(--accent); transform: scale(1.03); }
+.msg-bubble .ref-thumb img { display:block; height:80px; width:auto; max-width:180px; object-fit:cover; }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">&#9992;</div>
+  <div>
+    <div class="logo-text">출장관리 AI 챗봇 <span style="background:var(--accent);color:#fff;font-size:9px;padding:1px 6px;border-radius:4px;vertical-align:middle;margin-left:4px">v2</span></div>
+    <div class="logo-sub">현대자동차 트리플러스 운영대응 가이드</div>
+  </div>
+  <div class="hdr-right">
+    <div class="badge">매뉴얼 <span id="cntManual" style="color:#111;font-weight:700">-</span>건</div>
+    <div class="badge">Q&amp;A <span id="cntQA" style="color:#111;font-weight:700">-</span>건</div>
+    <div class="badge" id="cache-badge" title="클릭하면 최신 데이터로 새로고침" onclick="clearCache()" style="cursor:pointer;display:none">⚡ 캐시</div>
+  </div>
+</header>
+
+<nav class="top-nav">
+  <button class="nav-tab active" id="ntab-search" onclick="gotoPage('search')">&#128269; AI 검색</button>
+  <button class="nav-tab" id="ntab-jungbig" onclick="gotoPage('jungbig')">&#128196; 증빙규정</button>
+  <button class="nav-tab" id="ntab-sukbak" onclick="gotoPage('sukbak')">&#127968; 숙박비규정</button>
+  <button class="nav-tab" id="ntab-yowei" onclick="gotoPage('yowei')">&#128205; 예외거리구간</button>
+  <button class="nav-tab" id="ntab-gita" onclick="gotoPage('gita')">&#128652; 기타교통수단구간</button>
+  <button class="nav-tab" id="ntab-overseas" onclick="gotoPage('overseas')">&#9992;&#65039; 해외출장</button>
+  <button class="nav-tab" id="ntab-domman" onclick="gotoPage('domman')">📘 국내출장매뉴얼</button>
+  <button class="nav-tab" id="ntab-nanyang" onclick="gotoPage('nanyang')">&#128664; 남양시내교통비</button>
+  <button class="nav-tab" id="ntab-sinai" onclick="gotoPage('sinai')">&#128652; 시내교통비 신청</button>
+</nav>
+
+<div class="page active" id="page-search">
+<!-- 챗봇 레이아웃 -->
+<div class="chat-wrap">
+
+  <!-- 메시지 영역 -->
+  <div class="chat-messages" id="chatMessages">
+
+    <!-- 초기 로딩 -->
+    <div id="initLoading" class="chat-welcome" style="padding-top:40px">
+      <div class="chat-welcome-icon">⏳</div>
+      <div style="font-size:15px;color:var(--text2);font-weight:600">데이터 로딩 중...</div>
+    </div>
+
+    <!-- 환영 화면 (로딩 후 표시) -->
+    <div id="chatWelcome" class="chat-welcome" style="display:none;padding-top:32px">
+      <div class="chat-welcome-icon">✈️</div>
+      <h2>출장관리 AI 챗봇</h2>
+      <p>출장 관련 궁금한 내용을 편하게 질문하세요.<br>
+      누적된 매뉴얼·Q&amp;A 데이터를 종합해 최적의 답변을 드립니다.</p>
+      <div class="chat-suggest-grid">
+        <button class="chat-suggest-btn" onclick="chatQuick('남양연구소에서 서울 출장 시 교통비는 어떻게 정산하나요?')">
+          <span class="sq-icon">🚗</span>남양연구소 교통비 정산 방법
+        </button>
+        <button class="chat-suggest-btn" onclick="chatQuick('출장정산서 작성할 때 50km 미만이면 어떻게 되나요?')">
+          <span class="sq-icon">📋</span>50km 미만 출장 정산 규정
+        </button>
+        <button class="chat-suggest-btn" onclick="chatQuick('숙박비 규정과 지급 기준이 어떻게 되나요?')">
+          <span class="sq-icon">🏨</span>숙박비 지급 기준
+        </button>
+        <button class="chat-suggest-btn" onclick="chatQuick('출장계획서에서 날짜 선택이 안 될 때 어떻게 하나요?')">
+          <span class="sq-icon">📅</span>계획서 날짜 선택 불가 오류
+        </button>
+        <button class="chat-suggest-btn" onclick="chatQuick('기타교통수단 정액요금은 어떤 구간이 해당되나요?')">
+          <span class="sq-icon">🚌</span>기타교통수단 정액 구간
+        </button>
+        <button class="chat-suggest-btn" onclick="chatQuick('해외출장 시 교통비와 일비는 어떻게 지급되나요?')">
+          <span class="sq-icon">✈️</span>해외출장 교통비·일비 기준
+        </button>
+      </div>
+    </div>
+
+    <!-- 대화 메시지들이 여기에 append됨 -->
+    <div id="chatBody"></div>
+
+  </div><!-- /chat-messages -->
+
+  <!-- 입력 영역 -->
+  <div class="chat-input-area">
+    <div class="chat-input-inner">
+      <textarea
+        class="chat-textarea"
+        id="chatInput"
+        placeholder="출장 관련 질문을 입력하세요... (Shift+Enter: 줄바꿈)"
+        rows="1"
+      ></textarea>
+      <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()" title="전송 (Enter)">
+        ➤
+      </button>
+    </div>
+    <div class="chat-input-hint">
+      <span>데이터 필터:</span>
+      <div class="hint-filter">
+        <button class="hint-filter-btn active" id="cf-all"        onclick="setChatFilter('all',this)">전체</button>
+        <button class="hint-filter-btn" id="cf-출장정책"          onclick="setChatFilter('출장정책',this)">출장정책</button>
+        <button class="hint-filter-btn" id="cf-운영정책"          onclick="setChatFilter('운영정책',this)">운영정책</button>
+        <button class="hint-filter-btn" id="cf-남양연구소"        onclick="setChatFilter('남양연구소',this)">남양연구소</button>
+        <button class="hint-filter-btn" id="cf-트리플러스"        onclick="setChatFilter('트리플러스',this)">트리플러스</button>
+        <button class="hint-filter-btn" id="cf-오큐파이"          onclick="setChatFilter('오큐파이',this)">오큐파이</button>
+      </div>
+      <span style="margin-left:auto" id="chatDataBadge"></span>
+    </div>
+  </div>
+
+</div><!-- /chat-wrap -->
+
+<!-- 하위 호환: 기존 doSearch가 참조하는 hidden 요소들 -->
+<div style="display:none">
+  <input id="searchInput"><div id="welcome"></div><div id="results"></div>
+  <div id="noResults"></div><div id="resHdr"></div><span id="resCnt"></span>
+  <div id="aiBox"><div id="aiText"></div></div>
+</div>
+</div>
+
+<div class="page" id="page-jungbig">
+<div class="cat-page">
+  <h2>&#128196; 증빙규정</h2>
+  <p class="cat-desc">기타증빙 / 마이데이터 유형별 증빙 처리 규정입니다.</p>
+  <div class="cat-filters" id="jf-filters"></div>
+  <input class="tbl-search" id="jf-search" placeholder="유형, 분류, 케이스, 내용으로 검색...">
+  <div class="tbl-count" id="jf-count"></div>
+  <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 220px)">
+    <table class="dtbl">
+      <thead><tr><th>증빙유형</th><th>분류</th><th>케이스</th><th>내용</th></tr></thead>
+      <tbody id="jf-body"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<div class="page" id="page-sukbak">
+<div class="cat-page">
+  <h2>&#127968; 숙박비규정</h2>
+  <p class="cat-desc">사용자그룹별 숙박비 지급 기준입니다.</p>
+  <input class="tbl-search" id="sk-search" placeholder="출장목적, 사용자그룹, 지급구분으로 검색...">
+  <div class="tbl-count" id="sk-count"></div>
+  <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 220px)">
+    <table class="dtbl">
+      <thead><tr><th>출장목적</th><th>사용자그룹</th><th>지급구분</th><th>기준금액</th><th>지급옵션</th><th>비고</th></tr></thead>
+      <tbody id="sk-body"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<div class="page" id="page-yowei">
+<div class="cat-page">
+  <h2>&#128205; 예외거리 허용구간</h2>
+  <p class="cat-desc">50km 미만이어도 출장정산서 상신 가능한 예외 이동 구간입니다.</p>
+  <div class="cat-filters" id="yw-filters"></div>
+  <input class="tbl-search" id="yw-search" placeholder="출발지, 도착지로 검색...">
+  <div class="tbl-count" id="yw-count"></div>
+  <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 220px)">
+    <table class="dtbl">
+      <thead><tr><th>출발지</th><th>도착지</th><th>구분</th><th>상태</th></tr></thead>
+      <tbody id="yw-body"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<div class="page" id="page-gita">
+<div class="cat-page">
+  <h2>&#128652; 기타교통수단 구간</h2>
+  <p class="cat-desc">기타교통수단 정액요금으로 청구 가능한 구간 목록입니다.</p>
+  <input class="tbl-search" id="gt-search" placeholder="출발지, 목적지로 검색...">
+  <div class="tbl-count" id="gt-count"></div>
+  <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 220px)">
+    <table class="dtbl">
+      <thead><tr><th>출발지</th><th>목적지</th><th>금액</th></tr></thead>
+      <tbody id="gt-body"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<div class="page" id="page-overseas">
+<div class="cat-page">
+  <h2>&#9992;&#65039; 해외출장을 위한 이동</h2>
+  <p class="cat-desc">현대자동차 해외출장을 위한 이동 관련 교통비, 일비, 숙박 규정 안내입니다.</p>
+  <div id="ov-body"></div>
+</div>
+</div>
+
+<div class="page" id="page-domman">
+<div class="cat-page" style="padding:0">
+  <div style="padding:16px 20px 4px">
+    <h2>📘 국내출장 매뉴얼</h2>
+    <p class="cat-desc">트리플러스(Trip+) 국내출장 전체 가이드 — 신청·예약·정산 프로세스 안내</p>
+  </div>
+  <div class="toc-bar">
+  <div class="toc-inner">
+    <a class="toc-item" href="#sec1"><span class="toc-num">01</span> 무엇인지</a>
+    <a class="toc-item" href="#sec2"><span class="toc-num">02</span> 누가 쓰는지</a>
+    <a class="toc-item" href="#sec3"><span class="toc-num">03</span> 전체 흐름</a>
+    <a class="toc-item" href="#sec4"><span class="toc-num">04</span> 출장종류</a>
+    <a class="toc-item" href="#sec5"><span class="toc-num">05</span> 계획서</a>
+    <a class="toc-item" href="#sec6"><span class="toc-num">06</span> 예약</a>
+    <a class="toc-item" href="#sec7"><span class="toc-num">07</span> 비용규정</a>
+    <a class="toc-item" href="#sec8"><span class="toc-num">08</span> 정산서</a>
+    <a class="toc-item" href="#sec9"><span class="toc-num">09</span> 회수정책</a>
+    <a class="toc-item" href="#sec10"><span class="toc-num">10</span> FAQ</a>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="section" id="sec1">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <span class="section-title">트리플러스는 무엇인가요?</span>
+      <span class="section-icon">🧭</span>
+    </div>
+
+    <div class="highlight">
+      <h3>🎯 한 줄 설명</h3>
+      <div class="highlight-grid">
+        <div class="highlight-item"><span class="val">1건</span><div class="lbl">출장 등록</div></div>
+        <div class="highlight-item"><span class="val">1건</span><div class="lbl">예약 진행</div></div>
+        <div class="highlight-item"><span class="val">1건</span><div class="lbl">정산 작성</div></div>
+        <div class="highlight-item"><span class="val">4주</span><div class="lbl">자동 회수 기준</div></div>
+      </div>
+    </div>
+
+    <div class="info-box accent">
+      <p style="font-size:14px;">
+        트리플러스(Trip+)는 <strong>현대자동차의 국내출장을 관리하는 시스템</strong>입니다.
+        쉽게 말하면, 회사 밖으로 일하러 갈 때 <strong>출장 등록을 쓰고, 교통과 숙소를 예약하고,
+        출장 후 돈을 정산하고, 회사가 돈을 지급하거나 다시 회수하는 것</strong>까지 한 번에 처리하는 도구입니다.
+      </p>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">✍️</div>
+        <div class="card-label">계획</div>
+        <div class="card-value">출장계획서 작성</div>
+        <div class="card-desc">언제, 어디로, 왜 가는지 먼저 적습니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚄</div>
+        <div class="card-label">예약</div>
+        <div class="card-value">교통/숙박 예약</div>
+        <div class="card-desc">기차, 항공, 버스, 숙소를 정책 안에서 예약합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🧾</div>
+        <div class="card-label">정산</div>
+        <div class="card-value">출장정산서 작성</div>
+        <div class="card-desc">출장 뒤 실제로 쓴 비용을 정리합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💸</div>
+        <div class="card-label">지급/회수</div>
+        <div class="card-value">돈 지급 또는 회수</div>
+        <div class="card-desc">회사가 지급하거나, 미정산이면 다시 가져갑니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" id="sec2">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <span class="section-title">누가 사용할 수 있나요?</span>
+      <span class="section-icon">👥</span>
+    </div>
+
+    <div class="info-box primary">
+      <p style="font-size:14px;">
+        트리플러스 국내출장비는 <strong>현대자동차 그룹 전체 임직원</strong>이 사용할 수 있습니다.
+        다만 아무 출장이나 되는 것은 아니고, <strong>한 구간 이동거리 50km 이상</strong>이 기본 기준입니다.
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>항목</th>
+            <th>기준</th>
+            <th>쉽게 말하면</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>이용 대상</strong></td>
+            <td>현대자동차 그룹 전체 임직원</td>
+            <td>회사 직원이면 대상입니다.</td>
+          </tr>
+          <tr>
+            <td><strong>거리 기준</strong></td>
+            <td>한 구간 50km 이상</td>
+            <td>너무 가까운 이동은 기본적으로 국내출장비 대상이 아닙니다.</td>
+          </tr>
+          <tr>
+            <td><strong>예외 경로</strong></td>
+            <td>남양연구소 ↔ 일부 연구직 근무지 / 서울시 / 광명시 / 평택시</td>
+            <td>특별히 허용된 길은 따로 예외 처리됩니다.</td>
+          </tr>
+          <tr>
+            <td><strong>출장기간</strong></td>
+            <td>4주 이내</td>
+            <td>너무 긴 출장은 한 번에 못 만듭니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="notice">
+      <span class="notice-icon">💡</span>
+      <span>예외 이동경로는 시스템 메뉴에서 따로 관리합니다. 그래서 어떤 길은 50km가 안 되어도 가능할 수 있습니다.</span>
+    </div>
+  </div>
+
+  <div class="section" id="sec3">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <span class="section-title">전체 흐름은 어떻게 되나요?</span>
+      <span class="section-icon">🔄</span>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">출장계획서를 작성해요</div>
+          <div class="step-desc">어디로 가는지, 왜 가는지, 언제 가는지 적습니다. 어떤 경우는 계획서 없이도 진행되지만, 기본은 계획서부터 시작입니다.</div>
+          <span class="step-tag blue">기본 시작점</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">필요하면 예약해요</div>
+          <div class="step-desc">교통과 숙박을 트리플러스 안에서 예약할 수 있습니다. 회사 지원분 안에서 예약하거나, 개인결제로 예약할 수도 있습니다.</div>
+          <span class="step-tag gray">예약은 선택 가능</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">실제로 출장을 다녀와요</div>
+          <div class="step-desc">출장을 하고, 필요한 영수증이나 증빙을 모읍니다.</div>
+          <span class="step-tag blue">실제 이용</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">정산서를 작성해요</div>
+          <div class="step-desc">출장 후 실제 쓴 돈을 정리합니다. 계획서를 불러와서 연결할 수도 있고, 정산서만 따로 쓸 수도 있습니다.</div>
+          <span class="step-tag gray">계획서 연동 가능</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="step-title">결재와 지급 검증을 받아요</div>
+          <div class="step-desc">결재자가 승인하고, 정산담당자가 확인하면 회사가 돈을 지급합니다.</div>
+          <span class="step-tag blue">결재 필요</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-body">
+          <div class="step-title">돈을 받아요 또는 다시 내요</div>
+          <div class="step-desc">정상 정산이면 회사가 비용을 주고, 정산을 안 했거나 초과 사용이 있으면 일부 금액을 회수할 수 있습니다.</div>
+          <span class="step-tag gray">지급 / 회수</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>케이스</th>
+            <th>흐름</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>회사 지원분 내 예약</strong></td>
+            <td>계획서 작성 → 예약(계획서 연동) → 출장 이용 → 정산서 작성 → 결재 승인 → 지급검증 → 출장비 수령</td>
+          </tr>
+          <tr>
+            <td><strong>개인결제로 예약</strong></td>
+            <td>(계획서 작성) → 예약 → 출장 이용 → 정산서 작성 → 결재 승인 → 지급검증 → 출장비 수령</td>
+          </tr>
+          <tr>
+            <td><strong>예약 없이 출장</strong></td>
+            <td>(계획서 작성) → 출장 이용 → 정산서 작성 → 결재 승인 → 지급검증 → 출장비 수령</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="notice">
+      <span class="notice-icon">🪙</span>
+      <span>비플머니 예약이 가능한 예시: 계획서 없이 예약, 계획서 연동 시 같은 경로 2번 이상 예약, 규정 초과 시 차액분만 결제.</span>
+    </div>
+  </div>
+
+  <div class="section" id="sec4">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <span class="section-title">출장종류는 무엇이 있나요?</span>
+      <span class="section-icon">🧳</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>큰 분류</th>
+            <th>세부 구분</th>
+            <th>설명</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>일반출장</strong></td>
+            <td>일반</td>
+            <td>가장 일반적인 업무 출장입니다.</td>
+          </tr>
+          <tr>
+            <td><strong>일반출장</strong></td>
+            <td>출퇴근</td>
+            <td>출장이지만 매일 출퇴근하는 형태입니다.</td>
+          </tr>
+          <tr>
+            <td><strong>일반출장</strong></td>
+            <td>신차조립</td>
+            <td>정산서만 사용하며, 다른 출장과 달리 국내출장비가 아니라 기타 계정과목을 사용합니다.</td>
+          </tr>
+          <tr>
+            <td><strong>교육출장</strong></td>
+            <td>숙박제공</td>
+            <td>교육 목적이고 회사가 숙박을 제공하는 경우입니다.</td>
+          </tr>
+          <tr>
+            <td><strong>교육출장</strong></td>
+            <td>숙박미제공</td>
+            <td>교육 목적이지만 회사가 숙박을 제공하지 않는 경우입니다.</td>
+          </tr>
+          <tr>
+            <td><strong>교육출장</strong></td>
+            <td>출퇴근</td>
+            <td>교육을 위해 매일 오가며 신청하는 유형입니다.</td>
+          </tr>
+          <tr>
+            <td><strong>해외출장을 위한 이동</strong></td>
+            <td>국내편도출장</td>
+            <td>공항으로 이동하거나 돌아오는 날짜를 아직 모를 때 씁니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="sec5">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <span class="section-title">출장계획서는 어떻게 쓰나요?</span>
+      <span class="section-icon">📝</span>
+    </div>
+
+    <div class="info-box accent">
+      <p style="font-size:14px;">
+        계획서는 <strong>출장의 설계도</strong>입니다. 먼저 문서를 만들고, 필요하면 예약까지 연결합니다.
+        그리고 출장 상태에 따라 <strong>종료, 취소, 수정, 동행인 관리</strong> 같은 버튼이 다르게 보입니다.
+      </p>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🏁</div>
+        <div class="card-value">출장종료</div>
+        <div class="card-desc">정산서를 작성한 시점이 기본적인 출장 종료입니다. 조기종료는 예외 케이스입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">❌</div>
+        <div class="card-value">출장취소</div>
+        <div class="card-desc">예약이나 사용한 일비가 있으면 취소가 제한될 수 있습니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">✏️</div>
+        <div class="card-value">수정</div>
+        <div class="card-desc">출장 종료일 5시 전까지 수정 가능하지만, 예약 상태에 따라 수정 제한이 있습니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">👫</div>
+        <div class="card-value">동행인</div>
+        <div class="card-desc">원 출장자만 동행자 추가/삭제가 가능하고, 동행자 문서는 복사본으로 생성됩니다.</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>기능</th>
+            <th>정책</th>
+            <th>주의할 점</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>출장종료</strong></td>
+            <td>출장중에만 버튼 노출. 남은 출장기간의 일비 지급 종료.</td>
+            <td>트리플러스 계좌일 때 남은 일비가 끊깁니다.</td>
+          </tr>
+          <tr>
+            <td><strong>4주 미정산</strong></td>
+            <td>출장종료 후 4주 내 정산서 미작성 시 일비/예약금 자동회수.</td>
+            <td>정산서를 쓰면 다시 돌려줍니다. 단, 대리작성 문서는 자동회수 대상 제외.</td>
+          </tr>
+          <tr>
+            <td><strong>조기종료</strong></td>
+            <td>실제 출장일과 조기종료일을 따로 표시.</td>
+            <td>숙박예약이 있었다면 초과 숙박비 회수 필요 가능.</td>
+          </tr>
+          <tr>
+            <td><strong>출장취소</strong></td>
+            <td>예약내역이 있거나 지급 일비를 사용했으면 취소 불가.</td>
+            <td>취소페널티가 나왔을 때도 취소 가능한 이슈가 문서에 표시되어 있습니다.</td>
+          </tr>
+          <tr>
+            <td><strong>수정</strong></td>
+            <td>출장종료일 5시 전까지 가능.</td>
+            <td>지급방식 수정 불가. 숙박/교통 예약 상태에 따라 기간, 목적지, 교통수단 수정 제한.</td>
+          </tr>
+          <tr>
+            <td><strong>동행인</strong></td>
+            <td>원 출장자만 추가/삭제 가능.</td>
+            <td>동행인 삭제 시 예약내역 없어야 하고, 사용한 일비 없어야 함.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="info-box primary">
+      <p style="font-size:14px;font-weight:700;color:var(--primary);margin-bottom:10px;">동행인 정책</p>
+      <ul class="check-list">
+        <li>출장초대 수락 시 원 출장자와 같은 내용의 문서가 <strong>복사</strong>됩니다. 문서를 같이 보는 공유 방식은 아닙니다.</li>
+        <li>거부하면 문서는 만들어지지 않습니다.</li>
+        <li>동행 초대 문서는 출장종료일 이후 사라집니다.</li>
+        <li>동행 상태에서는 출장목적/구분, 제목, 출장기간, 업무구분, 지급방식 수정이 불가합니다.</li>
+        <li>교통 예약이 있는 경우 경로/이동수단도 수정 불가합니다.</li>
+      </ul>
+    </div>
+
+    <div class="notice">
+      <span class="notice-icon">🔍</span>
+      <span>출장의견은 출장초대일 때 작성할 수 없고, 대리자 화면에도 나오지 않습니다. 출장자와 부서장 사이 소통용입니다.</span>
+    </div>
+  </div>
+
+  <div class="section" id="sec6">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <span class="section-title">예약은 어떻게 되나요?</span>
+      <span class="section-icon">🚉</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>예약 항목</th>
+            <th>정책</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>예약 버튼 노출</strong></td>
+            <td>출장종료일까지, 상태가 작성완료 또는 동반신청일 때만 보입니다.</td>
+          </tr>
+          <tr>
+            <td><strong>일일 출장</strong></td>
+            <td>숙박 예약 버튼이 나오지 않습니다.</td>
+          </tr>
+          <tr>
+            <td><strong>출장자 숙소 신청일</strong></td>
+            <td>같은 날짜에 숙박 예약 불가합니다.</td>
+          </tr>
+          <tr>
+            <td><strong>규정조건이 미지급</strong></td>
+            <td>예약 버튼이 보이지 않습니다.</td>
+          </tr>
+          <tr>
+            <td><strong>모든 출장일에 숙박예약 존재</strong></td>
+            <td>숙박 예약 버튼이 다시 보이지 않습니다.</td>
+          </tr>
+          <tr>
+            <td><strong>방문신청 / 교통수단 변경</strong></td>
+            <td>출장종료일까지, 작성완료 또는 동반신청 상태일 때만 노출됩니다.</td>
+          </tr>
+          <tr>
+            <td><strong>긴급출장 취소</strong></td>
+            <td>출발일=도착일=작성일인 긴급출장을 취소하면 일비는 즉시 반환됩니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="info-box warning">
+      <p style="font-size:14px;font-weight:700;margin-bottom:10px;">교통수단 종류</p>
+      <ul class="check-list">
+        <li><strong>항공/기차/버스:</strong> 선택 시 해당 경로를 예약할 수 있습니다.</li>
+        <li><strong>자차:</strong> 유류비, 자차본인부담금, 하이패스 첨부 가능.</li>
+        <li><strong>업무용차/시험차:</strong> 하이패스만 첨부 가능.</li>
+        <li><strong>기타교통수단:</strong> 공공데이터가 아니라 별도 DB에 관리된 구간별 정액 지급.</li>
+        <li><strong>카풀:</strong> 교통비 미지급.</li>
+        <li><strong>동승자:</strong> 동행인이 자차 사용 시 선택 가능.</li>
+        <li><strong>교통비 미발생:</strong> 교통비 미지급.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section" id="sec7">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <span class="section-title">출장비 규정은 어떻게 되나요?</span>
+      <span class="section-icon">💰</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>출장목적</th>
+            <th>구분</th>
+            <th>일비</th>
+            <th>숙박</th>
+            <th>교통</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td rowspan="3"><strong>일반출장</strong></td>
+            <td>일반</td>
+            <td>4만원 (중간 5만원)</td>
+            <td>제공</td>
+            <td>공통</td>
+          </tr>
+          <tr>
+            <td>출퇴근</td>
+            <td>4만원 (중간값 없음)</td>
+            <td>미제공</td>
+            <td>공통</td>
+          </tr>
+          <tr>
+            <td>신차조립</td>
+            <td>공통 (중간 5만원)</td>
+            <td>제공</td>
+            <td>공통</td>
+          </tr>
+          <tr>
+            <td rowspan="3"><strong>교육출장</strong></td>
+            <td>숙박제공</td>
+            <td>첫날, 마지막날만 제공</td>
+            <td>미제공</td>
+            <td>공통</td>
+          </tr>
+          <tr>
+            <td>숙박미제공</td>
+            <td>공통</td>
+            <td>-</td>
+            <td>공통</td>
+          </tr>
+          <tr>
+            <td>출퇴근</td>
+            <td>4만원 (중간값 없음)</td>
+            <td>미제공</td>
+            <td>공통</td>
+          </tr>
+          <tr>
+            <td><strong>해외출장을 위한 이동</strong></td>
+            <td>국내편도</td>
+            <td>미제공 (체크 시 일비 적용)</td>
+            <td>제공</td>
+            <td>공통</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🍱</div>
+        <div class="card-label">일비</div>
+        <div class="card-value">일반직원 4만원/일</div>
+        <div class="card-desc">중간값 5만원 규정이 있는 경우가 있습니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">👔</div>
+        <div class="card-label">임원 일비</div>
+        <div class="card-value">6만원/일</div>
+        <div class="card-desc">책임급 실장 포함입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏨</div>
+        <div class="card-label">숙박비 한도</div>
+        <div class="card-value">일반직원 8만원</div>
+        <div class="card-desc">상무 20만원, 전무 30만원, 부사장 이상 5성급/실비정산입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚄</div>
+        <div class="card-label">교통등급</div>
+        <div class="card-value">직급별 한도 적용</div>
+        <div class="card-desc">항공·열차·버스마다 허용 등급이 다릅니다.</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>교통비 규정</th>
+            <th>일반직원</th>
+            <th>임원(책임급 실장 포함)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>국내항공</td>
+            <td>이코노미</td>
+            <td>비즈니스</td>
+          </tr>
+          <tr>
+            <td>열차(KTX, SRT 등)</td>
+            <td>일반실</td>
+            <td>특실</td>
+          </tr>
+          <tr>
+            <td>고속버스</td>
+            <td>우등</td>
+            <td>우등</td>
+          </tr>
+          <tr>
+            <td>시외버스</td>
+            <td>실비</td>
+            <td>실비</td>
+          </tr>
+          <tr>
+            <td>업무용차/테스트카</td>
+            <td>유류비, 통행료 지원</td>
+            <td>유류비, 통행료 지원</td>
+          </tr>
+          <tr>
+            <td>자차</td>
+            <td>유류비, 통행료, 동승자보험비(선택), 자차본인부담금 실비</td>
+            <td>동일 기준</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="info-box primary">
+      <p style="font-size:14px;font-weight:700;color:var(--primary);margin-bottom:10px;">꼭 알아둘 조건</p>
+      <ul class="check-list">
+        <li>교통비 증빙은 <strong>이동경로를 선택해야</strong> 가능합니다.</li>
+        <li>항공/시외버스는 기타증빙에서 실비 처리합니다.</li>
+        <li>열차/고속버스는 공공데이터로 출도착지 기준 정액 지급합니다.</li>
+        <li>열차 특실은 공공데이터가 아니라 KTX/SRT 운임표를 DB화해 사용합니다.</li>
+        <li>숙박비는 <strong>2일 이상 출장기간</strong>을 선택해야 첨부 가능합니다.</li>
+        <li>숙박 이용일에 직원숙소 신청이 되어 있으면 숙박비 첨부가 불가합니다.</li>
+        <li>같은 날짜에 숙박비 2건 이상은 붙일 수 없습니다.</li>
+      </ul>
+    </div>
+
+    <div class="info-box success">
+      <p style="font-size:14px;font-weight:700;color:var(--success);margin-bottom:10px;">추가 비용 항목</p>
+      <ul class="check-list">
+        <li><strong>동승자보험:</strong> 이동수단에 동승자가 있을 때만 증빙 가능.</li>
+        <li><strong>직원숙소이용:</strong> 아산공장/전주공장 대상, 현금 정액 지급(현대차 1만원, 기아차 1.1만원).</li>
+        <li><strong>자차본인부담금:</strong> 자차 이용 시만 가능, 파일 2개 이상 + 신청사유 입력 필요.</li>
+        <li><strong>통행료:</strong> 자차 또는 업무용차/시험차 이용 시만 지원, 하이패스 프로그램 실사용 금액 첨부.</li>
+        <li><strong>유류비:</strong> 자차 이용 시만 가능, 오피넷 유가정보로 정액 계산.</li>
+        <li><strong>취소수수료:</strong> 법인포인트 이용 시만 증빙 가능, 업무사유는 회사부담, 개인사유는 개인부담.</li>
+        <li><strong>기타비용:</strong> 그 외 다른 비용을 처리할 때 사용.</li>
+      </ul>
+      <p class="small" style="margin-top:10px;">
+        유류비 계산식: 단가 × (주행거리 / 지급연비) × 지급인정기준 + 주행거리 × 감가상각비 단가
+      </p>
+    </div>
+
+    <div class="notice">
+      <span class="notice-icon">🧠</span>
+      <span>일비 지급방식은 두 가지입니다. 트리플러스 계좌는 출장일별 지급, 급여/경비 계좌는 정산서 지급승인 후 현대차 일정에 따라 영업일 3~4일 뒤 수령합니다.</span>
+    </div>
+  </div>
+
+  <div class="section" id="sec8">
+    <div class="section-header">
+      <span class="section-num">08</span>
+      <span class="section-title">정산서는 어떻게 작성하나요?</span>
+      <span class="section-icon">🧾</span>
+    </div>
+
+    <div class="info-box accent">
+      <p style="font-size:14px;">
+        정산서는 <strong>출장 뒤 실제 돈 계산서</strong>입니다.
+        결재자 결재와 정산담당자 확인이 모두 끝나야 출장자에게 돈이 지급됩니다.
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>결재상태</th>
+            <th>의미</th>
+            <th>가능한 일</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>결재요청</strong></td>
+            <td>정산서 작성을 마치고 결재를 올린 상태</td>
+            <td>문서 회수 가능</td>
+          </tr>
+          <tr>
+            <td><strong>결재반려</strong></td>
+            <td>결재자가 되돌려 보낸 상태</td>
+            <td>반려사유 확인, 재작성 가능(문서번호 별도)</td>
+          </tr>
+          <tr>
+            <td><strong>결재진행</strong></td>
+            <td>모든 결재자가 다 승인하지는 않은 상태</td>
+            <td>진행 대기</td>
+          </tr>
+          <tr>
+            <td><strong>결재완료</strong></td>
+            <td>부서장이 모두 결재 완료한 상태</td>
+            <td>지급 요청 단계로 이동</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>지급상태</th>
+            <th>의미</th>
+            <th>가능한 일</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>지급요청</strong></td>
+            <td>결재완료 후 지급 대기 상태</td>
+            <td>자료보완 요청 가능, 다시 작성 요청 시 지급반송 가능</td>
+          </tr>
+          <tr>
+            <td><strong>지급보류</strong></td>
+            <td>지급을 잠시 멈춘 상태</td>
+            <td>지급승인 / 지급반송 가능, 지급의견 작성 가능</td>
+          </tr>
+          <tr>
+            <td><strong>지급반송</strong></td>
+            <td>지급하지 않고 되돌린 상태</td>
+            <td>재작성 가능(문서번호 별도), 지급의견 작성 가능</td>
+          </tr>
+          <tr>
+            <td><strong>지급승인</strong></td>
+            <td>지급 승인 완료</td>
+            <td>트리플러스 계좌는 D+1 낮 12시 지급, 급여/경비 계좌는 확정전표 콜백 후 지급완료</td>
+          </tr>
+          <tr>
+            <td><strong>지급완료</strong></td>
+            <td>실제 지급이 끝난 상태</td>
+            <td>완료</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="info-box primary">
+      <p style="font-size:14px;font-weight:700;color:var(--primary);margin-bottom:10px;">계획서 불러오기 규칙</p>
+      <ul class="check-list">
+        <li>정산서 하나에 계획서는 1개만 불러올 수 있습니다.</li>
+        <li>출장종료일이 오늘 포함 이전인 계획서만 불러오기 가능합니다.</li>
+        <li>출장취소나 조기종료 계획서는 접속일보다 미래여도 정산 가능할 수 있습니다.</li>
+        <li>출장취소 상태 계획서는 취소수수료가 있을 때만 목록에 나옵니다.</li>
+        <li>임시저장한 계획서는 다시 불러올 수 있지만, 문서 작성 완료 후에는 불러올 수 없습니다.</li>
+        <li>예약 내역이 있는 계획서는 이용일 이후에만 불러오기 가능합니다.</li>
+      </ul>
+    </div>
+
+    <div class="info-box warning">
+      <p style="font-size:14px;font-weight:700;margin-bottom:10px;">계획서와 정산서 정보가 다를 때</p>
+      <ul class="check-list">
+        <li><strong>코스트센터:</strong> 계획서에서 선택한 코스트센터 + 현재 출장자가 권한 가진 코스트센터 중 선택 가능.</li>
+        <li><strong>일비:</strong> 트리플러스 계좌로 선지급받았다면 회수금액이 반영되고, 더 받아야 하면 추가 지급됩니다.</li>
+        <li><strong>숙박비:</strong> 숙박 예약 후 출장기간을 줄이면 줄어든 박수만큼 회수금액이 반영됩니다.</li>
+        <li><strong>업무사유 숙박 초과:</strong> 회사부담.</li>
+        <li><strong>개인사유 숙박 초과:</strong> 개인부담.</li>
+      </ul>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>지급방식</th>
+            <th>정책</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>출장계획서 - 트리플러스 계좌</strong></td>
+            <td>잔여일비 회수로직 포함</td>
+          </tr>
+          <tr>
+            <td><strong>출장계획서 - 급여/경비 계좌</strong></td>
+            <td>계획서 일비 선지급 없음 + 일비 전표 자동생성</td>
+          </tr>
+          <tr>
+            <td><strong>출장정산서 - 계획서가 트리플러스 계좌</strong></td>
+            <td>정산서도 트리플러스 계좌로 고정. 일비 선지급, 일비 외 기타출장비는 비플페이 계좌이체로 지급</td>
+          </tr>
+          <tr>
+            <td><strong>출장정산서 - 계획서가 급여/경비 계좌</strong></td>
+            <td>정산서도 급여/경비 계좌로 고정. 일비 + 기타출장비를 현대차에서 지급</td>
+          </tr>
+          <tr>
+            <td><strong>예외: 정산서만 작성</strong></td>
+            <td>급여/경비 계좌로 고정</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="info-box success">
+      <p style="font-size:14px;font-weight:700;color:var(--success);margin-bottom:10px;">증빙수단 종류</p>
+      <ul class="check-list">
+        <li><strong>법인포인트:</strong> 식권 포인트 CI와 트래포트 통신으로 선지급 부여. 숙박비/교통비/취소수수료 용도. 한도 초과 시 예약 불가, 초과분은 비플머니 결제.</li>
+        <li><strong>마이데이터:</strong> 체크페이 모듈을 통해 본인 카드결제 내역 첨부. 사용처/금액/일자는 수정 불가.</li>
+        <li><strong>하이패스:</strong> 하이패스 모듈에서 실사용 내역을 가져와 통행료 집계.</li>
+        <li><strong>기타증빙:</strong> 직접 만든 간이영수증 개념. 결제일자 수정 불가.</li>
+        <li><strong>비플머니:</strong> 예약 시 개인결제분. 정상 결제는 자동 적재, 취소수수료도 자동 적재. 수정/삭제 불가.</li>
+      </ul>
+    </div>
+
+    <div class="notice">
+      <span class="notice-icon">📦</span>
+      <span>임시저장은 SAP 오류 응답, 부서장 미등록, 문서 회수, 작성 중 임시저장 버튼 클릭 때 발생할 수 있습니다.</span>
+    </div>
+  </div>
+
+  <div class="section" id="sec9">
+    <div class="section-header">
+      <span class="section-num">09</span>
+      <span class="section-title">돈은 어떻게 계산되고, 언제 회수되나요?</span>
+      <span class="section-icon">🏦</span>
+    </div>
+
+    <div class="info-box primary">
+      <p style="font-size:14px;">
+        정산 화면에는 크게 세 가지 돈이 있습니다.
+        <strong>국내출장비</strong>, <strong>입금예정금액</strong>, <strong>미정산 회수금액</strong>입니다.
+      </p>
+    </div>
+
+    <div class="info-box accent">
+      <p style="font-size:14px;font-weight:700;margin-bottom:10px;">미정산 자동 회수 4주 기준</p>
+      <ul class="check-list">
+        <li><strong>기준일:</strong> 출장종료일 다음이 아니라 <strong>출장종료일 기준 4주</strong> 안에 정산서를 작성해야 합니다.</li>
+        <li><strong>미작성 시:</strong> 4주 내 정산서가 없으면 <strong>일비와 예약금액(교통비·숙박비)</strong>이 자동 회수 대상이 됩니다.</li>
+        <li><strong>자동 회수 후:</strong> 나중에 정산서를 작성하면 회수된 금액은 <strong>미정산 반환금액</strong>으로 반영될 수 있습니다.</li>
+        <li><strong>핵심 이해:</strong> 회사 돈이 먼저 나간 상태를 오래 열어두지 않기 위해 <strong>4주 기준</strong>으로 회수 정책이 적용됩니다.</li>
+      </ul>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>요약 항목</th>
+            <th>뜻</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>국내출장비</strong></td>
+            <td>회사가 출장을 위해 지불하는 비용</td>
+          </tr>
+          <tr>
+            <td><strong>입금예정금액</strong></td>
+            <td>출장 때문에 개인이 실제로 받거나 내는 돈</td>
+          </tr>
+          <tr>
+            <td><strong>미정산 회수금액</strong></td>
+            <td>계획서에서 발생한 예약금액/일비를 정산서 없이 오래 두어 회수된 금액</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="info-box warning">
+      <p style="font-size:14px;font-weight:700;margin-bottom:10px;">분할 기능</p>
+      <ul class="check-list">
+        <li><strong>용도분할:</strong> 한 플랫폼 통합결제 영수증을 숙박비/교통비 등 항목별로 나눌 때 사용.</li>
+        <li><strong>사용자분할:</strong> 한 명이 결제한 영수증을 동행자에게 나눠줄 때 사용.</li>
+        <li>사용자분할 후 재분할은 불가합니다.</li>
+        <li>분할 후 초기화는 경우에 따라 제한됩니다. 공유대상자는 초기화 불가, 결재진행중이면 초기화 불가.</li>
+      </ul>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>회수 종류</th>
+            <th>언제</th>
+            <th>어떻게</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>정산 후 회수</strong></td>
+            <td>정산서 작성 후 순 회수금액이 생길 때</td>
+            <td>등록한 비플머니 계좌로 회수</td>
+          </tr>
+          <tr>
+            <td><strong>미정산 수동 회수</strong></td>
+            <td>출장종료 후 정산하지 않은 건을 담당자가 수동 처리</td>
+            <td>비플머니 계좌로 회수, 나중 정산 시 미정산 반환금액에 집계</td>
+          </tr>
+          <tr>
+            <td><strong>미정산 자동 회수</strong></td>
+            <td>출장종료일로부터 4주 후</td>
+            <td>일비/예약금액(교통비·숙박비)을 비플머니 계좌에서 자동 회수</td>
+          </tr>
+          <tr>
+            <td><strong>오지급 회수</strong></td>
+            <td>정산이 끝났지만 금액을 잘못 지급했을 때</td>
+            <td>정산담당자가 회수 처리</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="info-box danger">
+      <p style="font-size:14px;font-weight:700;margin-bottom:10px;">미정산 자동 회수 세부 규칙</p>
+      <ul class="check-list">
+        <li><strong>포인트 선지급 방식 일비:</strong> 정산서 작성 시 기지급 일비 전환 출금, bstr_payment는 입금예정액 + 미정산 반환금액.</li>
+        <li><strong>후정산 방식 일비:</strong> 정산서 작성 시 잔여일비 회수는 하지 않음. 배치 또는 수동회수로 통장에서 출금한 돈을 비플페이로 돌려줌.</li>
+        <li><strong>교통비/숙박비:</strong> 숙박비/교통비/취소수수료까지 미정산 반환금액에 집계.</li>
+      </ul>
+    </div>
+
+    <div class="notice">
+      <span class="notice-icon">⚠️</span>
+      <span>결재요청 후 계좌를 변경하거나 삭제하면 회수가 불가한 이슈가 문서에 명시되어 있습니다. 계좌정보는 중간에 바꾸지 않는 것이 안전합니다.</span>
+    </div>
+
+    <div class="info-box success">
+      <p style="font-size:14px;font-weight:700;color:var(--success);margin-bottom:10px;">대리작성 / 대리예약</p>
+      <ul class="check-list">
+        <li><strong>대리작성:</strong> 서무나 대리작성자가 출장자 문서를 대신 등록하는 화면입니다.</li>
+        <li>대리작성 문서는 원 출장자 문서와 동일한 문서가 공유됩니다.</li>
+        <li>권한관리 메뉴에서 대리작성자별로 등록 가능한 출장자를 관리합니다.</li>
+        <li>출장자를 먼저 지정해야 그 출장자 규정대로 문서 작성이 가능합니다.</li>
+        <li><strong>대리예약:</strong> 예약자(토큰접속자)와 문서상 출장자가 다를 때를 뜻합니다.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section" id="sec10">
+    <div class="section-header">
+      <span class="section-num">10</span>
+      <span class="section-title">자주 헷갈리는 질문</span>
+      <span class="section-icon">❓</span>
+    </div>
+
+    <div class="qa-list">
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">계획서와 정산서는 꼭 둘 다 써야 하나요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 기본 흐름은 계획서 → 정산서입니다. 하지만 정책상 <strong>정산서만 작성하는 예외</strong>도 있습니다. 이 경우 지급방식은 급여/경비 계좌로 고정됩니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">출장을 끝냈는데 정산서를 안 쓰면 어떻게 되나요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 출장종료 후 <strong>4주 안에 정산서를 작성하지 않으면</strong> 일비와 예약금액이 자동 회수됩니다. 나중에 정산서를 작성하면 반환금액으로 다시 반영될 수 있습니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">예약이 이미 있는데 계획서 내용을 바꿀 수 있나요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 일부는 가능합니다. 하지만 <strong>숙박예약이 있으면 기간 수정 제한</strong>, <strong>교통예약이 있으면 목적지/교통수단 변경 제한</strong> 같은 규칙이 있어 마음대로 수정되지는 않습니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">동행인 문서는 같이 보는 문서인가요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 아닙니다. 초대 수락 시 <strong>같은 내용을 가진 복사본 문서</strong>가 생깁니다. 하나의 문서를 공동 편집하는 구조가 아닙니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">법인포인트와 비플머니는 무엇이 다른가요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 법인포인트는 회사 규정 안에서 먼저 주는 회사 포인트이고, 비플머니는 <strong>개인이 결제한 금액</strong>을 처리하는 수단입니다. 규정 초과분은 비플머니로 결제될 수 있습니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">취소수수료는 누가 내나요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> <strong>업무사유</strong>로 생긴 취소수수료는 회사가 부담하고, <strong>개인사유</strong>면 개인이 부담합니다. 그리고 취소수수료 증빙은 법인포인트 이용 시에만 가능합니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">출장 종료 버튼은 언제 보이나요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> <strong>출장중일 때만</strong> 보입니다. 출장 종료를 누르면 남은 기간의 일비 지급도 끝납니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">모바일에서도 쓰나요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 문서상 지원환경은 <strong>PC / MO</strong>로 표시되어 있습니다. 운영계 URL과 모바일 앱 정보가 함께 정의되어 있습니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">11</span>
+      <span class="section-title">마지막으로 이것만 기억하세요</span>
+      <span class="section-icon">⭐</span>
+    </div>
+
+    <div class="info-box accent">
+      <ul class="check-list">
+        <li>트리플러스는 <strong>출장계획 + 예약 + 정산 + 지급 + 회수</strong>를 한 번에 처리하는 시스템입니다.</li>
+        <li>출장 후 <strong>4주 안에 정산</strong>하지 않으면 자동회수가 걸릴 수 있습니다.</li>
+        <li>예약이 걸린 문서는 <strong>수정과 취소가 자유롭지 않습니다.</strong></li>
+        <li>법인포인트, 마이데이터, 하이패스, 기타증빙, 비플머니 등 <strong>증빙수단마다 규칙이 다릅니다.</strong></li>
+        <li>업무사유/개인사유에 따라 <strong>누가 돈을 부담하는지</strong> 달라집니다.</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+
+
+
+</div>
+</div>
+
+<div class="page" id="page-nanyang">
+<div class="cat-page">
+  <h2>&#128664; 남양연구소&#183;시내교통비</h2>
+  <p class="cat-desc">남양(8A)&#183;마북(8B)&#183;의왕(8H)&#183;판교(4Q)&#183;강남대로(1H) 근무자 대상 근거리 출장 시내교통비 신청 안내입니다.</p>
+  <div id="ny-body"></div>
+</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script>
+// ── Firebase 연동 ──────────────────────────────────────────
+var firebaseConfig = {
+  apiKey: "AIzaSyCvUli2EwQiaEdWtQdpFHmqIhtTbnbixaE",
+  authDomain: "bizplay-kb.firebaseapp.com",
+  projectId: "bizplay-kb",
+  storageBucket: "bizplay-kb.firebasestorage.app",
+  messagingSenderId: "424940526706",
+  appId: "1:424940526706:web:9857867a77bfdfdafff6eb"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.firestore();
+
+// ── localStorage 캐시 설정 ──────────────────────────────────────────
+var CACHE_KEY = "triplus_kb_cache";
+var CACHE_TTL = 24 * 60 * 60 * 1000; // 24시간 — Firestore 읽기 최소화
+
+var CACHE_VER_KEY = "triplus_kb_ver";
+function getCachedData() {
+  try {
+    var raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    var obj = JSON.parse(raw);
+    // TTL 체크
+    if (Date.now() - obj.ts > CACHE_TTL) {
+      localStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+    // 관리자 업데이트 버전 체크
+    // adminVer = 발효 시각(ms) — 관리자 저장 시 now+6h 로 기록됨
+    // 발효 시각이 현재보다 미래이면 아직 반영 전 → 기존 캐시 유지
+    // 발효 시각이 현재 이하이고 캐시 저장 시각보다 늦으면 → 새 데이터, 캐시 무효화
+    var adminVer = localStorage.getItem(CACHE_VER_KEY);
+    if (adminVer) {
+      var publishAt = parseInt(adminVer, 10);
+      if (publishAt <= Date.now() && obj.ver !== adminVer) {
+        // 발효 시각 도달 + 아직 이 버전으로 캐시 안 만들어진 상태 → 무효화
+        localStorage.removeItem(CACHE_KEY);
+        console.log('[KB] 관리자 업데이트 발효 → 캐시 무효화 (발효시각:', new Date(publishAt).toLocaleTimeString(), ')');
+        return null;
+      }
+      // 발효 시각이 미래 → 캐시 유지 (6시간 대기 중)
+      if (publishAt > Date.now()) {
+        console.log('[KB] 관리자 업데이트 대기 중 — 캐시 유지 (발효까지', Math.ceil((publishAt - Date.now()) / 60000), '분 남음)');
+      }
+    }
+    return obj;
+  } catch(e) { return null; }
+}
+
+function setCachedData(allItemsArr, tdObj, qaDocs, manCnt) {
+  try {
+    // base64 이미지(data:로 시작)는 캐시 용량 절약을 위해 제외
+    var slimItems = allItemsArr.map(function(it) {
+      var s = Object.assign({}, it);
+      if (s.img && s.img.startsWith('data:')) s.img = '';
+      if (s.img1 && s.img1.startsWith('data:')) s.img1 = '';
+      if (s.img2 && s.img2.startsWith('data:')) s.img2 = '';
+      return s;
+    });
+    var slimQa = qaDocs.map(function(q) {
+      var s = Object.assign({}, q);
+      if (s.img && s.img.startsWith('data:')) s.img = '';
+      if (s.img1 && s.img1.startsWith('data:')) s.img1 = '';
+      if (s.img2 && s.img2.startsWith('data:')) s.img2 = '';
+      return s;
+    });
+    var ver = localStorage.getItem(CACHE_VER_KEY) || String(Date.now());
+    var obj = { ts: Date.now(), ver: ver, items: slimItems, td: tdObj, qaDocs: slimQa, manCnt: manCnt };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(obj));
+    var kb = Math.round(JSON.stringify(obj).length / 1024);
+    console.log('[KB] 캐시 저장 완료 (' + kb + 'KB, TTL 24시간)');
+  } catch(e) {
+    console.warn("[KB] 캐시 저장 실패 (용량 초과):", e.message);
+  }
+}
+
+// 캐시 강제 초기화 (관리자가 데이터 수정 후 사용)
+function clearCache() {
+  if (confirm('캐시를 초기화하고 최신 데이터를 불러올까요?\n(Firestore 읽기 1,734건이 발생합니다)')) {
+    localStorage.removeItem(CACHE_KEY);
+    location.reload();
+  }
+}
+window.clearCache = clearCache;
+
+// ── Firestore 로드 (캐시 우선) ────────────────────────────────────
+async function loadFromFirestore() {
+  // 1) 캐시 확인
+  var cached = getCachedData();
+  if (cached) {
+    console.log("[KB] 캐시 히트 — Firestore 읽기 생략 ✅ (캐시 저장 시각:", new Date(cached.ts).toLocaleTimeString(), ")");
+    // 캐시 데이터로 allItems / TD 복원
+    allItems.length = 0;
+    for (var ci = 0; ci < cached.items.length; ci++) allItems.push(cached.items[ci]);
+    TD = cached.td;
+    return { manCnt: cached.manCnt, qaDocs: cached.qaDocs, fromCache: true };
+  }
+
+  // 2) 캐시 미스 → Firestore 실제 로드
+  console.log("[KB] Firestore 로드 시작...");
+  var qaSnap = await db.collection("qa").get();
+  var qaDocs = qaSnap.docs.map(function(d){ return d.data(); });
+
+  var manSnap = await db.collection("manual").get();
+  var manDocs = manSnap.docs.map(function(d){ return d.data(); });
+
+  for (var i = 0; i < manDocs.length; i++) {
+    var m = manDocs[i];
+    allItems.push({type:"manual",source:m.s,category:m.c||"",item:m.it||"",question:m.q||"",answer:m.a||"",remark:m.r||"",img:m.img||"",img_caption:m.img_caption||"",img0:m.img0||"",img1:m.img1||"",img1_caption:m.img1_caption||"",img2:m.img2||"",img2_caption:m.img2_caption||"",img3:m.img3||"",img4:m.img4||"",xs:m.xs||0,_docId:m.id||""});
+  }
+  for (var i = 0; i < qaDocs.length; i++) {
+    var q = qaDocs[i];
+    allItems.push({type:"qa",source:q.s,category:q.c||"",item:"",question:q.q||"",answer:q.a||"",remark:q.r||"",img:q.img||"",img_caption:q.img_caption||"",img0:q.img0||"",img1:q.img1||"",img1_caption:q.img1_caption||"",img2:q.img2||"",img2_caption:q.img2_caption||"",img3:q.img3||"",img4:q.img4||"",xs:q.xs||0,_docId:q.id||""});
+  }
+
+  var tblSnap = await db.collection("tables").get();
+  TD = {};
+  tblSnap.docs.forEach(function(d){
+    var row = d.data();
+    var tname = row.tableName;
+    if (!TD[tname]) TD[tname] = [];
+    var item = Object.assign({}, row);
+    item._docId = d.id;
+    delete item.tableName; delete item.id;
+    TD[tname].push(item);
+  });
+
+  console.log("[KB] Firestore 로드 완료 — QA:", qaDocs.length, "매뉴얼:", manDocs.length);
+
+  // 3) 캐시 저장
+  setCachedData(allItems.slice(), TD, qaDocs, manDocs.length);
+
+  return { manCnt: manDocs.length, qaDocs: qaDocs, fromCache: false };
+}
+
+
+// ── 참고 이미지 데이터 ────────────────────────────────────────────────────────
+var REF_IMGS = {
+  "남양연구소_국내출장비반납": [],
+  "남양연구소_SAP미결반제처리": [],
+  "남양연구소_반납계좌": []
+};
+
+function openImgModal(b64, label) {
+  document.getElementById('imgModalSrc').src = b64;  // b64 or URL 모두 OK
+  document.getElementById('imgModalCaption').textContent = label;
+  document.getElementById('imgModal').classList.add('open');
+}
+function closeImgModal(e) {
+  if (e.target === document.getElementById('imgModal')) {
+    document.getElementById('imgModal').classList.remove('open');
+  }
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') document.getElementById('imgModal').classList.remove('open');
+});
+
+// ── 참고 이미지 키 매핑 ───────────────────────────────────────────────────────
+function getRefImgKey(item) {
+  var q = (item.question || '').replace(/\s/g,'');
+  var it = (item.item || '').replace(/\s/g,'');
+  var src = item.source || '';
+  if (src === '남양연구소' && (q.indexOf('반납') >= 0 || it.indexOf('반납') >= 0)) {
+    if (q.indexOf('SAP') >= 0 || q.indexOf('전표') >= 0 || q.indexOf('미결') >= 0 || it.indexOf('SAP') >= 0) {
+      return '남양연구소_SAP미결반제처리';
+    }
+    if (q.indexOf('계좌') >= 0 || it.indexOf('계좌') >= 0) {
+      return '남양연구소_반납계좌';
+    }
+    return '남양연구소_국내출장비반납';
+  }
+  return null;
+}
+
+var allItems = [];
+var TD = null;
+var activeFilter = "all";
+
+// ── 공통: 이미지 블록 HTML 생성 (img, img0~img4 모두 처리) ──
+function buildImgHtml(item, thumbClass) {
+  var srcs = [
+    {src: item.img,  cap: item.img_caption  || ''},
+    {src: item.img0, cap: ''},
+    {src: item.img1, cap: item.img1_caption || ''},
+    {src: item.img2, cap: item.img2_caption || ''},
+    {src: item.img3, cap: ''},
+    {src: item.img4, cap: ''}
+  ].filter(function(x){ return !!x.src; });
+  if (!srcs.length) return '';
+  var cls = thumbClass || 'common-thumb';
+  var h = '<div class="ref-imgs">';
+  h += '<div style="font-size:11px;color:var(--accent2);font-weight:700;margin-bottom:4px">🖼️ 첨부 이미지 (클릭하면 확대)</div>';
+  for (var i = 0; i < srcs.length; i++) {
+    var raw = srcs[i].src;
+    var fullSrc = (raw.startsWith('http') || raw.startsWith('data:')) ? raw : 'data:image/png;base64,' + raw;
+    var cap = esc(srcs[i].cap);
+    h += '<div class="ref-thumb ' + cls + '" data-imgsrc="' + esc(fullSrc) + '" data-imgcap="' + cap + '">';
+    h += '<img src="' + esc(fullSrc) + '" alt="' + cap + '" style="max-height:120px;object-fit:cover">';
+    if (srcs[i].cap) h += '<div class="ref-thumb-label">' + cap + '</div>';
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+// ── 남양연구소 시내교통비 렌더 ──────────────────────────────────
+function renderNanyang() {
+  var kw = (document.getElementById('ny-search')||{}).value||'';
+  var nkw = norm(kw);
+  var src = '\ub0a8\uc591\uc5f0\uad6c\uc18c-\uc2dc\ub0b4\uad50\ud1b5\ube44';
+  var items = allItems.filter(function(x){ return x.source===src; });
+  if(nkw) items = items.filter(function(x){
+    return norm(x.question).indexOf(nkw)>=0||norm(x.answer).indexOf(nkw)>=0||norm(x.category).indexOf(nkw)>=0;
+  });
+  var out = '';
+  for(var ii=0; ii<items.length; ii++) {
+    var item = items[ii];
+    var cardId = 'nycard'+ii;
+    // 교통비·유류비·통행료 항목은 테이블로 특별 렌더
+    var isTransport = item.item && item.item.indexOf('\uad50\ud1b5\ube44\xb7\uc720\ub958\ube44\xb7\ud1b5\ud589\ub8cc') >= 0;
+    var ansHtml = '';
+    if(isTransport) {
+      ansHtml += '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">';
+      ansHtml += '<thead><tr style="background:#fef9c3"><th style="padding:7px 10px;text-align:left;border-bottom:2px solid #fcd34d;font-weight:700;color:#854d0e">\uc774\ub3d9\uc218\ub2e8</th><th style="padding:7px 10px;border-bottom:2px solid #fcd34d;color:#854d0e;text-align:center">\uad50\ud1b5\ube44</th><th style="padding:7px 10px;border-bottom:2px solid #fcd34d;color:#854d0e;text-align:center">\uc720\ub958\ube44</th><th style="padding:7px 10px;border-bottom:2px solid #fcd34d;color:#854d0e;text-align:center">\ud1b5\ud589\ub8cc</th></tr></thead><tbody>';
+      var rows = [
+        ['\uc77c\ubc18 (G4\xb7\uc784\uc6d0)', '\ubbf8\uc9c0\uae09', '\ubbf8\uc9c0\uae09', '\uc2e4\ube44'],
+        ['\uc77c\ubc18 (\uc774\uc678 \uadf8\ub8f9)', '\uc2e4\ube44', '\uc815\uc561', '\uc2e4\ube44'],
+        ['\uc2dc\ub0b4\uad50\ud1b5 (\ub300\uc911\uad50\ud1b5)', '\uc2e4\ube44', '\ubbf8\uc9c0\uae09', '\ubbf8\uc9c0\uae09'],
+        ['\uc790\uae30\ucc28\ub7c9', '\ubbf8\uc9c0\uae09', '\uc815\uc561', '\uc2e4\ube44'],
+        ['\uc5c5\ubb34\uc6a9\ucc28\xb7\uc2dc\ud5d8\ucc28', '\ubbf8\uc9c0\uae09', '\ubbf8\uc9c0\uae09', '\ubbf8\uc9c0\uae09'],
+        ['\ub3d9\uc2b9\uc790 \ucc28\ub7c9', '\ubbf8\uc9c0\uae09', '\ubbf8\uc9c0\uae09', '\ubbf8\uc9c0\uae09']
+      ];
+      for(var r=0;r<rows.length;r++){
+        var bg = r%2===0?'':'background:#fffbeb';
+        ansHtml += '<tr style="'+bg+'">';
+        ansHtml += '<td style="padding:7px 10px;font-weight:700;color:#78350f;border-bottom:1px solid #fef9c3">'+rows[r][0]+'</td>';
+        for(var c=1;c<4;c++){
+          var val = rows[r][c];
+          var color = val==='\ubbf8\uc9c0\uae09'?'#dc2626':val==='\uc2e4\ube44'?'#059669':'#2563eb';
+          ansHtml += '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+color+';border-bottom:1px solid #fef9c3">'+val+'</td>';
+        }
+        ansHtml += '</tr>';
+      }
+      ansHtml += '</tbody></table>';
+      ansHtml += '<div style="margin-top:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;font-size:12px;color:#1e40af;line-height:1.7">';
+      ansHtml += '&#128663; <strong>\uc790\uae30\ucc28\ub7c9 \uc120\ud0dd \uc2dc \uc8fc\uc758!</strong> 1\uad6c\uac04\uc774\ub77c\ub3c4 \uc790\uae30\ucc28\ub7c9\uc744 \uc120\ud0dd\ud558\uba74 <strong>\ubaa8\ub4e0 \uad6c\uac04</strong>\uc774 \uc790\uae30\ucc28\ub7c9\uc73c\ub85c \uc120\ud0dd\ub3fc\uc694.<br>';
+      ansHtml += '\uc720\ub958\ube44\ub294 \uc624\ud53c\ub137 \ub2f9\uc77c \uae30\uc900\uc73c\ub85c \uc0b0\uc815\ub418\uace0, \ud1b5\ud589\ub8cc\ub294 \ud2f0\ub9f5 API \uc608\uc0c1\uae08\uc561(\ucc38\uace0\uc6a9)\uc744 \uae30\uc900\uc73c\ub85c \ud574\uc694.';
+      ansHtml += '</div>';
+    } else {
+      ansHtml = esc(item.answer).replace(/\n/g,'<br>');
+    }
+    var rem = item.remark ? '<div class="remark">\uD83D\uDCCE '+hlTerms(item.remark,[])+'</div>' : '';
+    out += '<div class="ov-card" id="'+cardId+'">';
+    out += '<div class="ov-card-head" onclick="nyToggle(\''+cardId+'\')" style="cursor:pointer">';
+    out += '<span class="ov-cat" style="background:#fef9c3;color:#854d0e">'+esc(item.category)+'</span>';
+    if(item.item) out += '<span style="font-size:10px;color:var(--text3);flex-shrink:0;margin-right:4px">'+esc(item.item)+'</span>';
+    out += '<span class="ov-title">'+esc(item.question)+'</span>';
+    out += '<span style="margin-left:auto;font-size:12px;color:var(--text3);flex-shrink:0" class="ny-arrow-'+cardId+'">&#9660;</span>';
+    out += '</div>';
+    var imgHtml = buildImgHtml(item, 'ny-thumb');
+    out += '<div class="ov-body ny-body-'+cardId+'" style="display:none">'+ansHtml+rem+imgHtml+'</div>';
+    out += '</div>';
+  }
+  if(!out) out = '<p style="padding:40px;text-align:center;color:var(--text2)">\uAC80\uC0C9 \uACB0\uACFC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.</p>';
+  document.getElementById('ny-body').innerHTML = out;
+  // 검색어 있으면 전체 펼치기
+  if(nkw) {
+    var cards = document.querySelectorAll('#ny-body .ov-card');
+    cards.forEach(function(c){ var b = c.querySelector('[class^="ov-body"]'); if(b) b.style.display='block'; });
+  }
+}
+
+function nyToggle(cardId) {
+  var body = document.querySelector('.ny-body-'+cardId);
+  var arrow = document.querySelector('.ny-arrow-'+cardId);
+  if(!body) return;
+  var open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if(arrow) arrow.innerHTML = open ? '&#9660;' : '&#9650;';
+}
+
+// 이미지 썸네일 클릭 이벤트 위임 (ny-thumb · common-thumb 공통)
+(function(){
+  document.body.addEventListener('click', function(e){
+    var thumb = e.target.closest('.ny-thumb, .common-thumb');
+    if(thumb){
+      var src = thumb.getAttribute('data-imgsrc');
+      var cap = thumb.getAttribute('data-imgcap')||'';
+      if(src && window.openImgModal) openImgModal(src, cap);
+    }
+  });
+})();
+
+
+
+// ── 해외출장 렌더 ─────────────────────────────────────────────
+function renderOverseas() {
+  var kw = (document.getElementById('ov-search')||{}).value||'';
+  var nkw = norm(kw);
+  var items = allItems.filter(function(x){ return x.source==='해외출장을위한이동'; });
+  if(nkw) items = items.filter(function(x){
+    return norm(x.question).indexOf(nkw)>=0||norm(x.answer).indexOf(nkw)>=0||norm(x.category).indexOf(nkw)>=0;
+  });
+  var out = '';
+  for(var ii=0; ii<items.length; ii++) {
+    var item = items[ii];
+    var ans = esc(item.answer).replace(/\n/g,'<br>');
+    out += '<div class="ov-card">';
+    out += '<div class="ov-card-head">';
+    out += '<span class="ov-cat">'+esc(item.category)+'</span>';
+    out += '<span class="ov-title">'+esc(item.question)+'</span>';
+    out += '</div>';
+    out += '<div class="ov-body">'+ans+'</div>';
+    out += buildImgHtml(item, 'ov-thumb');
+    out += '</div>';
+  }
+  if(!out) out = '<p style="padding:40px;text-align:center;color:var(--text2)">검색 결과가 없습니다.</p>';
+  document.getElementById('ov-body').innerHTML = out;
+  // 썸네일 onclick 이벤트 위임 (data-src 방식으로 싱글쿼트 충돌 회피)
+  document.querySelectorAll('.ov-thumb').forEach(function(el) {
+    el.onclick = function() {
+      var src = this.getAttribute('data-imgsrc') || (this.querySelector('img')||{}).src || '';
+      var cap = this.getAttribute('data-imgcap') || this.getAttribute('data-cap') || '';
+      if(src) openImgModal(src, cap);
+    };
+  });
+}
+
+
+async function init() {
+  try {
+    var result = await loadFromFirestore();
+    var manCnt = result.manCnt;
+    var qaDocs = result.qaDocs;
+    // 캐시 상태 뱃지 업데이트
+    var cacheBadge = document.getElementById('cache-badge');
+    if (cacheBadge) {
+      cacheBadge.style.display = '';
+      if (result.fromCache) {
+        var cached2 = getCachedData();
+        var remainMin = cached2 ? Math.round((CACHE_TTL - (Date.now() - cached2.ts)) / 60000) : 0;
+        var remainTxt = remainMin > 60 ? (Math.floor(remainMin/60) + '시간 후 갱신') : (remainMin + '분 후 갱신');
+        cacheBadge.textContent = '⚡ 캐시 · ' + remainTxt;
+        cacheBadge.classList.remove('miss');
+      } else {
+        cacheBadge.textContent = '☁️ 최신 데이터';
+        cacheBadge.classList.add('miss');
+        // 3초 후 캐시 표시로 전환
+        setTimeout(function() {
+          if (cacheBadge) {
+            cacheBadge.textContent = '⚡ 캐시 · 24시간 후 갱신';
+            cacheBadge.classList.remove('miss');
+          }
+        }, 3000);
+      }
+    }
+    var qaCnt = 0;
+    for (var i = 0; i < qaDocs.length; i++) {
+      if (qaDocs[i].s === "트리플러스" || qaDocs[i].s === "오큐파이") qaCnt++;
+    }
+    document.getElementById("cntManual").textContent = manCnt;
+    document.getElementById("cntQA").textContent = qaCnt;
+    renderOverseas();
+    renderNanyang();
+    var jfEl=document.getElementById("jf-search"); if(jfEl) jfEl.addEventListener("input", renderJungbig);
+    var skEl=document.getElementById("sk-search"); if(skEl) skEl.addEventListener("input", renderSukbak);
+    var ywEl=document.getElementById("yw-search"); if(ywEl) ywEl.addEventListener("input", renderYowei);
+    var gtEl=document.getElementById("gt-search"); if(gtEl) gtEl.addEventListener("input", renderGita);
+    buildJfFilters();
+    buildYwFilters();
+    renderJungbig();
+    renderSukbak();
+    renderYowei();
+    renderGita();
+    document.getElementById("initLoading").style.display = "none";
+    document.getElementById("chatWelcome").style.display = "block";
+    // 데이터 뱃지
+    var badge = document.getElementById('chatDataBadge');
+    if (badge) badge.textContent = '매뉴얼 ' + manCnt + '건 · Q&A ' + qaCnt + '건';
+
+  } catch(e) {
+    console.error("[KB] 로딩 오류:", e);
+    document.getElementById("initLoading").textContent = "❌ 오류: " + e.message + " (F12 콘솔 확인)";
+    document.getElementById("initLoading").style.color = "#ef4444";
+  }
+}
+
+
+function gotoPage(name) {
+  var pages = document.querySelectorAll(".page");
+  for (var i = 0; i < pages.length; i++) pages[i].classList.remove("active");
+  var tabs = document.querySelectorAll(".nav-tab");
+  for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove("active");
+  document.getElementById("page-" + name).classList.add("active");
+  document.getElementById("ntab-" + name).classList.add("active");
+  if (name === "jungbig") renderJungbig();
+  if (name === "sukbak")  renderSukbak();
+  if (name === "yowei")   renderYowei();
+  if (name === "gita")    renderGita();
+  if (name === "overseas") renderOverseas();
+  if (name === "nanyang")  renderNanyang();
+}
+window.gotoPage = gotoPage;
+
+function esc(s) {
+  return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function linkify(text) {
+  var escaped = esc(text);
+  // https?:// URL을 새창 링크로 변환
+  return escaped.replace(/(https?:\/\/[^\s&<>"']+)/g, function(url) {
+    return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline;word-break:break-all;">' + url + '</a>';
+  });
+}
+function norm(s) { return (s||"").toLowerCase().replace(/\s+/g," ").trim(); }
+function tokenize(s) {
+  var n = norm(s);
+  var toks = n.split(/[\s,._\-\/|()]+/).filter(function(t){return t.length>=1;});
+  var bg = [];
+  for (var i = 0; i < toks.length-1; i++) bg.push(toks[i]+toks[i+1]);
+  var all = toks.concat(bg);
+  var seen = {};
+  return all.filter(function(v){ if(seen[v]) return false; seen[v]=1; return true; });
+}
+function hlOne(text, kw) {
+  if (!kw || !text) return esc(text||"");
+  var e = esc(text);
+  var kl = kw.toLowerCase();
+  var el = e.toLowerCase();
+  var out = ""; var i = 0;
+  while (i < e.length) {
+    var p = el.indexOf(kl, i);
+    if (p === -1) { out += e.slice(i); break; }
+    out += e.slice(i,p) + "<mark>" + e.slice(p, p+kw.length) + "</mark>";
+    i = p + kw.length;
+  }
+  return out;
+}
+function hlTerms(text, terms) {
+  if (!text) return '';
+  // URL 링크 변환 먼저 (esc 후 처리)
+  var r = esc(text);
+  // https?:// URL → 새창 링크
+  r = r.replace(/(https?:\/\/[^\s&<>"']+)/g, function(url){
+    return '<a href="'+url+'" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline;word-break:break-all;">'+url+'</a>';
+  });
+  // 줄바꿈 유지 (pre-wrap 대신 <br>)
+  r = r.replace(/\n/g, '<br>');
+  if (!terms.length) return r;
+  var sorted = terms.slice().sort(function(a,b){return b.length-a.length;});
+  for (var ti = 0; ti < sorted.length; ti++) {
+    var t = sorted[ti]; if (t.length<2) continue;
+    var out=""; var rl=r.toLowerCase(); var tl=t.toLowerCase(); var i=0;
+    while (i<r.length) {
+      var p=rl.indexOf(tl,i);
+      if(p===-1){out+=r.slice(i);break;}
+      out+=r.slice(i,p)+"<mark>"+r.slice(p,p+t.length)+"</mark>";
+      i=p+t.length;
+    }
+    r=out;
+  }
+  return r;
+}
+function scoreItem(item, tokens, qn) {
+  var fields=[{t:item.question,w:3},{t:item.answer,w:2},{t:item.category,w:1.5},{t:item.item,w:1.5},{t:item.source,w:1}];
+  var s=0,matched=0;
+  for(var fi=0;fi<fields.length;fi++){
+    var n=norm(fields[fi].t); var w=fields[fi].w;
+    if(n.indexOf(qn)>=0) s+=w*5;
+    for(var ti=0;ti<tokens.length;ti++){
+      var tok=tokens[ti]; if(tok.length<1) continue;
+      if(n.indexOf(tok)>=0){s+=w*(tok.length>=3?2:1);matched++;}
+    }
+  }
+  var cov=tokens.length>0?matched/tokens.length:0;
+  // 설치오류 관련 항목 보너스
+  var qFull = norm(item.question||'');
+  if(qFull.indexOf('설치')>=0 && qFull.indexOf('오류')>=0 && qn.indexOf('하이패스')>=0) s *= 2.5;
+  if(qFull.indexOf('모듈')>=0 && qFull.indexOf('설치')>=0) s *= 1.5;
+  return s*(0.5+cov*0.5);
+}
+var tagMap = {
+  "출장정책":["t-manual","매뉴얼"],"운영정책":["t-manual","매뉴얼"],"남양연구소":["t-manual","남양"],
+  "트리플러스":["t-triplus","트리플러스"],"오큐파이":["t-occupi","오큐파이"],
+  "해외출장을위한이동":["t-overseas","해외출장"],"증빙규정":["t-jungbig","증빙규정"],
+  "숙박비규정":["t-sukbak","숙박비"],"예외거리허용구간":["t-route","예외구간"],"기타교통수단구간":["t-transit","기타교통"]
+};
+function makeTag(source) {
+  var info = tagMap[source] || ["t-triplus", esc(source)];
+  return "<span class=\"tag "+info[0]+"\">"+info[1]+"</span>";
+}
+
+function setFilter(val, btn) {
+  activeFilter = val;
+  var btns = document.querySelectorAll(".filter-btn");
+  for (var i=0;i<btns.length;i++) btns[i].classList.remove("active");
+  btn.classList.add("active");
+}
+window.setFilter = setFilter;
+
+function quickSearch(q) {
+  // v2: 챗봇으로 리다이렉트
+  if (typeof chatQuick === 'function') { chatQuick(q); return; }
+  document.getElementById("searchInput").value = q;
+  doSearch();
+}
+window.quickSearch = quickSearch;
+
+function toggleCard(idx) {
+  var card=document.getElementById("card-"+idx);
+  var ans=document.getElementById("ans-"+idx);
+  var qel=document.getElementById("cq-"+idx);
+  if(!card||!ans) return;
+  var isOpen=card.classList.contains("open");
+  card.classList.toggle("open",!isOpen);
+  ans.classList.toggle("open",!isOpen);
+  if(qel) qel.classList.toggle("open",!isOpen);
+  card.querySelector(".arrow").textContent = isOpen ? "\u25bc" : "\u25b2";
+}
+
+function copyAns(idx, e) {
+  e.stopPropagation();
+  var el = document.getElementById('ans-'+idx);
+  if(!el) return;
+  var textEl = el.querySelector('.ans-text');
+  var text = textEl ? textEl.innerText || textEl.textContent : el.innerText || el.textContent;
+  var btn = e.currentTarget || e.target;
+  function showDone() {
+    btn.textContent = '\u2705 복사됨';
+    btn.style.background = '#059669'; btn.style.color = '#fff';
+    setTimeout(function(){ btn.textContent = '\uD83D\uDCCB 복사'; btn.style.background=''; btn.style.color=''; }, 1800);
+  }
+  if(navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(showDone).catch(function(){
+      var ta=document.createElement('textarea'); ta.value=text;
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+      showDone();
+    });
+  } else {
+    var ta=document.createElement('textarea'); ta.value=text;
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    showDone();
+  }
+}
+window.toggleCard = toggleCard;
+  window.copyAns = copyAns;
+
+// ══════════════════════════════════════════════════════════
+// 챗봇 엔진 (v2)
+// ══════════════════════════════════════════════════════════
+
+var chatHistory = [];       // Claude API 대화 히스토리
+var chatFilter  = 'all';    // 데이터 필터
+var chatBusy    = false;    // 전송 중 여부
+
+function setChatFilter(val, btn) {
+  chatFilter = val;
+  document.querySelectorAll('.hint-filter-btn').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+}
+
+function chatQuick(q) {
+  var ta = document.getElementById('chatInput');
+  if (!ta) return;
+  ta.value = q;
+  sendMessage();
+}
+
+function appendMsg(role, html, extraClass) {
+  var body = document.getElementById('chatBody');
+  if (!body) return null;
+  var isUser = (role === 'user');
+  var row = document.createElement('div');
+  row.className = 'msg-row ' + role + (extraClass ? ' ' + extraClass : '');
+  var avatar = '<div class="msg-avatar ' + (isUser ? 'usr' : 'ai') + '">' + (isUser ? '👤' : '✈️') + '</div>';
+  var bubble = '<div class="msg-bubble">' + html + '</div>';
+  row.innerHTML = isUser ? (bubble + avatar) : (avatar + bubble);
+  body.appendChild(row);
+  var msgs = document.getElementById('chatMessages');
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+  return row;
+}
+
+function appendLoading() {
+  return appendMsg('ai', '<div class="typing-dots"><span></span><span></span><span></span></div>', 'loading-row');
+}
+
+function buildImgHtmlChat(item) {
+  var defs = [
+    {f:'img',  cap: item.img_caption  || ''},
+    {f:'img0', cap: ''},
+    {f:'img1', cap: item.img1_caption || ''},
+    {f:'img2', cap: item.img2_caption || ''},
+    {f:'img3', cap: ''},
+    {f:'img4', cap: ''}
+  ];
+  var srcs = defs.filter(function(x){ return !!item[x.f]; });
+  if (!srcs.length) return '';
+  var h = '<div class="ref-imgs"><div style="font-size:11px;color:var(--accent2);font-weight:700;width:100%;margin-bottom:6px">🖼️ 첨부 이미지 (클릭하면 확대)</div>';
+  srcs.forEach(function(x) {
+    var raw  = item[x.f];
+    var full = (raw.startsWith('http') || raw.startsWith('data:')) ? raw : 'data:image/png;base64,' + raw;
+    var cap  = esc(x.cap);
+    h += '<div class="ref-thumb url-img-thumb" data-imgsrc="' + esc(full) + '" data-imgcap="' + cap + '">';
+    h += '<img src="' + esc(full) + '" alt="' + cap + '">';
+    if (x.cap) h += '<div class="ref-thumb-label">' + cap + '</div>';
+    h += '</div>';
+  });
+  return h + '</div>';
+}
+
+function buildSourceCards(scoredArr) {
+  if (!scoredArr.length) return '';
+  var maxSc = scoredArr[0].sc || 1;
+  var html = '<div class="ai-sources"><div class="ai-sources-title">📎 참고 데이터 ' + scoredArr.length + '건 (클릭하면 상세 보기)</div>';
+  scoredArr.forEach(function(x) {
+    var item    = x.item;
+    var pct     = Math.round((x.sc / maxSc) * 100);
+    var tagInfo = (tagMap[item.source] || ['t-triplus', esc(item.source)]);
+    var imgH    = buildImgHtmlChat(item);
+    var refKey  = getRefImgKey(item);
+    var refH    = '';
+    if (refKey && REF_IMGS[refKey]) {
+      refH = '<div class="ref-imgs">';
+      REF_IMGS[refKey].forEach(function(r) {
+        refH += '<div class="ref-thumb" onclick="openImgModal(\'' + r.b64 + '\',\'' + r.label + '\')">';
+        refH += '<img src="' + r.b64 + '" alt="' + r.label + '"><div class="ref-thumb-label">' + r.label + '</div></div>';
+      });
+      refH += '</div>';
+    }
+    html += '<div class="src-card" onclick="toggleSrcCard(this)">';
+    html += '<div class="src-card-head"><span class="tag ' + tagInfo[0] + '">' + tagInfo[1] + '</span>';
+    if (item.category && item.category !== item.source)
+      html += '<span style="font-size:10px;color:var(--text3)">' + esc(item.category) + '</span>';
+    html += '<span class="src-card-score">' + pct + '%</span></div>';
+    html += '<div class="src-card-q">' + esc(item.question.slice(0,120)) + '</div>';
+    html += '<div class="src-card-a">' + esc(item.answer.slice(0,160)) + '</div>';
+    html += '<div class="src-card-detail"><div class="full-ans">' + hlTerms(item.answer,[]) + '</div>';
+    if (item.remark) html += '<div class="full-remark">📎 ' + hlTerms(item.remark,[]) + '</div>';
+    html += imgH + refH + '</div></div>';
+  });
+  return html + '</div>';
+}
+
+function toggleSrcCard(el) { el.classList.toggle('open'); }
+
+async function sendMessage() {
+  if (chatBusy || allItems.length === 0) return;
+  var ta    = document.getElementById('chatInput');
+  var btn   = document.getElementById('chatSendBtn');
+  var query = ta ? ta.value.trim() : '';
+  if (!query) return;
+
+  var welcome = document.getElementById('chatWelcome');
+  if (welcome) welcome.style.display = 'none';
+
+  chatBusy = true;
+  ta.value = '';
+  ta.style.height = '48px';
+  btn.disabled = true;
+
+  appendMsg('user', esc(query).replace(/\n/g,'<br>'));
+  var loadingRow = appendLoading();
+
+  // 키워드 검색
+  var qn = norm(query), tokens = tokenize(query), scored = [];
+  for (var i = 0; i < allItems.length; i++) {
+    var item = allItems[i];
+    if (item.xs) continue;
+    if (chatFilter !== 'all' && item.source !== chatFilter) continue;
+    var sc = scoreItem(item, tokens, qn);
+    if (sc > 0) scored.push({item:item, sc:sc});
+  }
+  scored.sort(function(a,b){ return b.sc - a.sc; });
+  var topCtx  = scored.slice(0, 10);
+  var topShow = scored.slice(0, 8);
+
+  // 컨텍스트 구성
+  var ctx = topCtx.map(function(x, ci) {
+    var it = x.item;
+    return '[' + (ci+1) + '] 출처:' + it.source + (it.category ? ' > ' + it.category : '')
+      + '\nQ: ' + it.question.slice(0,300)
+      + '\nA: ' + it.answer.slice(0,500)
+      + (it.remark ? '\n비고: ' + it.remark.slice(0,150) : '');
+  }).join('\n\n');
+
+  chatHistory.push({role:'user', content:query});
+
+  // API 호출
+  var aiAnswer = '';
+  try {
+    var histSlice = chatHistory.slice(-20);
+    var msgs4api  = histSlice.slice(0,-1).concat([{
+      role: 'user',
+      content: '질문: "' + query + '"\n\n[참고 데이터]\n' + (ctx||'관련 데이터 없음') + '\n\n위 데이터를 바탕으로 답변해 주세요.'
+    }]);
+    var resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: '당신은 현대자동차 출장관리 전문 상담원 AI입니다.\n'
+          + '규칙:\n'
+          + '1. 반드시 [참고 데이터]에 근거해서만 답변하세요. 데이터 외 내용을 추측하지 마세요.\n'
+          + '2. 한국어로, 핵심을 먼저 말하고 필요시 세부 내용을 추가하세요.\n'
+          + '3. 관련 데이터가 없으면 "해당 내용은 데이터에서 확인되지 않습니다"라고 말하세요.\n'
+          + '4. 금액·날짜·거리 등 수치는 정확히 인용하세요.\n'
+          + '5. 답변은 400자 내외로 작성하세요.\n'
+          + '6. 이전 대화 맥락을 참고해 자연스럽게 이어가세요.',
+        messages: msgs4api
+      })
+    });
+    var data = await resp.json();
+    aiAnswer = (data.content && data.content[0]) ? data.content[0].text : '답변을 생성할 수 없습니다.';
+  } catch(e) {
+    aiAnswer = topCtx.length > 0
+      ? '⚠️ AI 연결 오류가 발생했습니다. 아래 참고 데이터를 직접 확인해 주세요.'
+      : '⚠️ 관련 데이터를 찾을 수 없습니다. 다른 키워드로 질문해보세요.';
+  }
+
+  chatHistory.push({role:'assistant', content:aiAnswer});
+
+  if (loadingRow && loadingRow.parentNode) loadingRow.parentNode.removeChild(loadingRow);
+
+  var ansHtml = '<div class="ai-answer">' + hlTerms(aiAnswer,[]) + '</div>' + buildSourceCards(topShow);
+  var aiRow   = appendMsg('ai', ansHtml);
+
+  if (aiRow) {
+    aiRow.querySelectorAll('.url-img-thumb').forEach(function(el) {
+      el.addEventListener('click', function(e) {
+        e.stopPropagation();
+        openImgModal(this.dataset.imgsrc, this.dataset.imgcap || '');
+      });
+    });
+  }
+
+  chatBusy = false;
+  btn.disabled = false;
+  if (ta) ta.focus();
+}
+
+// 기존 doSearch 호환
+function doSearch() {
+  var q = document.getElementById('searchInput');
+  if (q && q.value.trim()) chatQuick(q.value.trim());
+}
+
+window.doSearch      = doSearch;
+window.sendMessage   = sendMessage;
+window.chatQuick     = chatQuick;
+window.setChatFilter = setChatFilter;
+window.toggleSrcCard = toggleSrcCard;
+window.openImgModal  = openImgModal;
+window.closeImgModal = closeImgModal;
+window.renderOverseas = renderOverseas;
+window.renderNanyang  = renderNanyang;
+window.nyToggle       = nyToggle;
+
+document.addEventListener('DOMContentLoaded', function() {
+  // 국내출장 매뉴얼 QA 토글
+  document.addEventListener('click', function(e) {
+    var qBtn = e.target.closest('.qa-q');
+    if (qBtn) { var item = qBtn.closest('.qa-item'); if (item) item.classList.toggle('open'); }
+  });
+  // 국내출장 매뉴얼 내부 앵커 스크롤
+  document.querySelectorAll('.dom-manual a[href^="#"]').forEach(function(a) {
+    a.addEventListener('click', function(e) {
+      e.preventDefault();
+      var target = document.querySelector(this.getAttribute('href'));
+      if (target) {
+        var page = document.getElementById('page-domman');
+        if(page) page.scrollTo({top:target.offsetTop-60, behavior:'smooth'});
+        else target.scrollIntoView({behavior:'smooth', block:'start'});
+      }
+    });
+  });
+  // 시내교통비 내부 앵커 스크롤
+  document.querySelectorAll('.sinai-manual a[href^="#"]').forEach(function(a) {
+    a.addEventListener('click', function(e) {
+      e.preventDefault();
+      var target = document.querySelector(this.getAttribute('href'));
+      if (target) {
+        var page = document.getElementById('page-sinai');
+        if(page) page.scrollTo({top:target.offsetTop-60, behavior:'smooth'});
+        else target.scrollIntoView({behavior:'smooth', block:'start'});
+      }
+    });
+  });
+  // 챗봇 입력창 Enter/Shift+Enter
+  var ta = document.getElementById('chatInput');
+  if (ta) {
+    ta.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+    ta.addEventListener('input', function() {
+      this.style.height = '48px';
+      this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+    });
+  }
+  // 챗봇 메시지 영역 이미지 클릭
+  var chatBody = document.getElementById('chatBody');
+  if (chatBody) {
+    chatBody.addEventListener('click', function(e) {
+      var thumb = e.target.closest('.url-img-thumb');
+      if (thumb) { e.stopPropagation(); openImgModal(thumb.dataset.imgsrc, thumb.dataset.imgcap||''); }
+    });
+  }
+});
+
+
+var jfFilter="all";
+function buildJfFilters() {
+  if(!TD) return;
+  var types=[]; var rows=TD["\uc99d\ube59\uaddc\uc815"]||[];
+  for(var i=0;i<rows.length;i++){if(types.indexOf(rows[i].type)===-1) types.push(rows[i].type);}
+  var html="<button class=\"cf active\" onclick=\"setJfFilter(this,'all')\">전체</button>";
+  for(var i=0;i<types.length;i++) html+="<button class=\"cf\" onclick=\"setJfFilter(this,'"+esc(types[i])+"')\">"+esc(types[i])+"</button>";
+  document.getElementById("jf-filters").innerHTML=html;
+}
+function setJfFilter(btn,val){
+  jfFilter=val;
+  var bs=document.querySelectorAll("#jf-filters .cf"); for(var i=0;i<bs.length;i++) bs[i].classList.remove("active");
+  btn.classList.add("active"); renderJungbig();
+}
+window.setJfFilter=setJfFilter;
+function renderJungbig(){
+  if(!TD || !TD["증빙규정"]) { document.getElementById("jf-body").innerHTML='<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:20px">데이터 로딩 중...</td></tr>'; return; }
+  var kw=((document.getElementById("jf-search")||{}).value||"").trim().toLowerCase();
+  var rows=(TD["\uc99d\ube59\uaddc\uc815"]||[]).slice();
+  if(jfFilter!=="all") rows=rows.filter(function(r){return r.type===jfFilter;});
+  if(kw) rows=rows.filter(function(r){return [r.type,r.cat,r["case"],r.content].some(function(v){return(v||"").toLowerCase().indexOf(kw)>=0;});});
+  document.getElementById("jf-count").innerHTML="총 <span>"+rows.length+"</span>건";
+  var html=rows.map(function(r){
+    return "<tr><td><span class=\"btype btype-"+esc(r.type)+"\">"+hlOne(r.type,kw)+"</span></td>"+
+      "<td>"+hlOne(r.cat,kw)+"</td>"+
+      "<td style=\"white-space:nowrap;min-width:140px\">"+hlOne(r["case"],kw)+"</td>"+
+      "<td style=\"max-width:420px\">"+hlOne(r.content,kw).replace(/\n/g,"<br>")+"</td></tr>";
+  }).join("");
+  document.getElementById("jf-body").innerHTML=html;
+}
+function renderSukbak(){
+  if(!TD || !TD["숙박비규정"]) { document.getElementById("sk-body").innerHTML='<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:20px">데이터 로딩 중...</td></tr>'; return; }
+  var kw=((document.getElementById("sk-search")||{}).value||"").trim().toLowerCase();
+  var rows=(TD["\uc219\ubc15\ube44\uaddc\uc815"]||[]).slice();
+  if(kw) rows=rows.filter(function(r){return[r.purpose,r.usergrp,r.pay_type,r.remark].some(function(v){return(v||"").toLowerCase().indexOf(kw)>=0;});});
+  document.getElementById("sk-count").innerHTML="총 <span>"+rows.length+"</span>건";
+  var html=rows.map(function(r){
+    return "<tr><td>"+hlOne(r.purpose,kw)+"</td>"+
+      "<td style=\"white-space:nowrap\">"+hlOne(r.usergrp,kw)+"</td>"+
+      "<td>"+hlOne(r.pay_type,kw)+"</td>"+
+      "<td class=\"amt\">"+esc(r.amount)+"</td>"+
+      "<td>"+esc(r.option)+"</td>"+
+      "<td style=\"color:var(--text3);font-size:12px\">"+hlOne(r.remark,kw)+"</td></tr>";
+  }).join("");
+  document.getElementById("sk-body").innerHTML=html;
+}
+var ywFilter="all";
+function buildYwFilters(){
+  document.getElementById("yw-filters").innerHTML=
+    "<button class=\"cf active\" onclick=\"setYwFilter(this,'all')\">전체</button>"+
+    "<button class=\"cf\" onclick=\"setYwFilter(this,'active')\">&#9989; 사용중</button>"+
+    "<button class=\"cf\" onclick=\"setYwFilter(this,'inactive')\">&#9208; 미사용</button>";
+}
+function setYwFilter(btn,val){
+  ywFilter=val;
+  var bs=document.querySelectorAll("#yw-filters .cf"); for(var i=0;i<bs.length;i++) bs[i].classList.remove("active");
+  btn.classList.add("active"); renderYowei();
+}
+window.setYwFilter=setYwFilter;
+function renderYowei(){
+  if(!TD || !TD["예외거리허용구간"]) { document.getElementById("yw-body").innerHTML='<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:20px">데이터 로딩 중...</td></tr>'; return; }
+  var kw=((document.getElementById("yw-search")||{}).value||"").trim().toLowerCase();
+  var rows=(TD["\uc608\uc678\uac70\ub9ac\ud5c8\uc6a9\uad6c\uac04"]||[]).slice();
+  if(ywFilter==="active") rows=rows.filter(function(r){return r.status==="\uc0ac\uc6a9";});
+  if(ywFilter==="inactive") rows=rows.filter(function(r){return r.status!=="\uc0ac\uc6a9";});
+  if(kw) rows=rows.filter(function(r){return[r.from,r.to,r.type].some(function(v){return(v||"").toLowerCase().indexOf(kw)>=0;});});
+  document.getElementById("yw-count").innerHTML="총 <span>"+rows.length+"</span>건";
+  var html=rows.map(function(r){
+    return "<tr><td>"+hlOne(r.from,kw)+"</td><td>"+hlOne(r.to,kw)+"</td><td>"+esc(r.type)+"</td>"+
+      "<td class=\""+(r.status==="\uc0ac\uc6a9"?"s-on":"s-off")+"\">"+esc(r.status)+"</td></tr>";
+  }).join("");
+  document.getElementById("yw-body").innerHTML=html;
+}
+function renderGita(){
+  if(!TD || !TD["기타교통수단구간"]) { document.getElementById("gt-body").innerHTML='<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:20px">데이터 로딩 중...</td></tr>'; return; }
+  var kw=((document.getElementById("gt-search")||{}).value||"").trim().toLowerCase();
+  var rows=(TD["\uae30\ud0c0\uad50\ud1b5\uc218\ub2e8\uad6c\uac04"]||[]).slice();
+  if(kw) rows=rows.filter(function(r){return[r.from,r.to,r.amount].some(function(v){return(v||"").toLowerCase().indexOf(kw)>=0;});});
+  document.getElementById("gt-count").innerHTML="총 <span>"+rows.length+"</span>건";
+  var html=rows.map(function(r){
+    return "<tr><td>"+hlOne(r.from,kw)+"</td><td>"+hlOne(r.to,kw)+"</td><td class=\"amt\">"+esc(r.amount)+"</td></tr>";
+  }).join("");
+  document.getElementById("gt-body").innerHTML=html;
+}
+
+init();
+
+
+</script>
+
+<!-- 이미지 모달 -->
+<div class="img-modal" id="imgModal" onclick="closeImgModal(event)">
+  <div class="img-modal-close" onclick="event.stopPropagation();document.getElementById('imgModal').classList.remove('open')">✕</div>
+  <img id="imgModalSrc" src="" alt="">
+  <div class="img-modal-caption" id="imgModalCaption"></div>
+</div>
+
+<!-- 시내교통비 신청 매뉴얼 스타일 -->
+<style>
+.sinai-manual {
+  padding: 0;
+}
+
+  .sinai-manual {
+    --primary: #003087;
+    --accent: #00AAD2;
+    --accent2: #E8F4FD;
+    --dark: #0A0E1A;
+    --mid: #1E2A3A;
+    --text: #1a1a2e;
+    --muted: #6B7A99;
+    --light: #F4F7FF;
+    --white: #ffffff;
+    --success: #00875A;
+    --danger: #D93025;
+    --warning: #F59E0B;
+    --border: #DDE3F0;
+  }
+
+  
+
+  .sinai-manual {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--light);
+    color: var(--text);
+    line-height: 1.7;
+  }
+
+  /* HEADER */
+  .hero {
+    background: linear-gradient(135deg, var(--dark) 0%, var(--mid) 50%, #1a3a5c 100%);
+    color: white;
+    padding: 60px 40px 50px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,170,210,0.2) 0%, transparent 70%);
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -40px; left: 10%;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,48,135,0.4) 0%, transparent 70%);
+  }
+  .hero-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(0,170,210,0.2);
+    border: 1px solid rgba(0,170,210,0.5);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 18px;
+  }
+  .hero h1 {
+    font-size: 36px;
+    font-weight: 900;
+    letter-spacing: -1px;
+    line-height: 1.2;
+    margin-bottom: 12px;
+  }
+  .hero h1 span { color: var(--accent); }
+  .hero-sub {
+    font-size: 15px;
+    color: rgba(255,255,255,0.6);
+    font-weight: 300;
+  }
+  .hero-meta {
+    display: flex;
+    gap: 24px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+  .hero-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+  }
+  .hero-meta-item strong { color: rgba(255,255,255,0.85); }
+
+  /* NAV */
+  .toc-bar {
+    background: var(--white);
+    border-bottom: 2px solid var(--border);
+    padding: 0 40px;
+    position:relative;
+    top: 0;
+    
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .toc-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .toc-inner::-webkit-scrollbar { display: none; }
+  .toc-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 16px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    white-space: nowrap;
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+  }
+  .toc-item:hover { color: var(--primary); border-color: var(--accent); }
+  .toc-item .toc-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    background: var(--light);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* MAIN */
+  .main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 40px 80px;
+  }
+
+  /* SECTION */
+  .section {
+    margin-bottom: 48px;
+    animation: fadeUp 0.4s ease both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--border);
+  }
+  .section-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent2);
+    padding: 4px 10px;
+    border-radius: 6px;
+    letter-spacing: 1px;
+  }
+  .section-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .section-icon {
+    font-size: 22px;
+    margin-left: auto;
+  }
+
+  /* CARD GRID */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    transition: all 0.2s;
+  }
+  .card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 4px 20px rgba(0,170,210,0.12);
+    transform: translateY(-2px);
+  }
+  .card-icon { font-size: 28px; margin-bottom: 10px; }
+  .card-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .card-value {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .card-desc {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  /* INFO BOX */
+  .info-box {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px 28px;
+    margin-bottom: 14px;
+  }
+  .info-box.accent { border-left: 4px solid var(--accent); }
+  .info-box.primary { border-left: 4px solid var(--primary); }
+  .info-box.warning { border-left: 4px solid var(--warning); background: #FFFBF0; }
+  .info-box.danger { border-left: 4px solid var(--danger); background: #FFF5F5; }
+  .info-box.success { border-left: 4px solid var(--success); background: #F0FAF5; }
+
+  /* BADGE */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .badge.yes { background: #E6F9F0; color: var(--success); }
+  .badge.no { background: #FDECEA; color: var(--danger); }
+  .badge.cond { background: #FFF8E6; color: #B45309; }
+
+  /* TABLE */
+  .table-wrap {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    background: var(--primary);
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 13px 18px;
+    text-align: left;
+  }
+  td {
+    font-size: 13px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: #FAFBFF; }
+  tr:hover td { background: var(--accent2); }
+
+  /* STEP */
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step {
+    display: flex;
+    gap: 20px;
+    position: relative;
+  }
+  .step:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 44px;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    position: relative;
+    z-index: 1;
+  }
+  .step-.sinai-manual {
+    flex: 1;
+    padding-bottom: 28px;
+  }
+  .step-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 6px;
+    padding-top: 8px;
+  }
+  .step-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .step-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-top: 6px;
+  }
+  .step-tag.blue { background: var(--accent2); color: var(--primary); }
+  .step-tag.gray { background: var(--light); color: var(--muted); }
+
+  /* LIST */
+  .check-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .check-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .check-list li::before {
+    content: '✓';
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+  .x-list li::before {
+    content: '✗';
+    background: var(--danger) !important;
+  }
+
+  /* TAG ROW */
+  .tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .tag {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 8px;
+    background: var(--accent2);
+    color: var(--primary);
+    border: 1px solid rgba(0,170,210,0.3);
+  }
+
+  /* QA */
+  .qa-list { display: flex; flex-direction: column; gap: 12px; }
+  .qa-item {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+  .qa-item:hover { border-color: var(--accent); }
+  .qa-q {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 18px 22px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .qa-q-mark {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    background: var(--primary);
+    color: white;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+  .qa-q-text {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .qa-arrow {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 5px;
+    transition: transform 0.2s;
+  }
+  .qa-item.open .qa-arrow { transform: rotate(180deg); }
+  .qa-a {
+    display: none;
+    padding: 0 22px 18px 60px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.7;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+  }
+  .qa-a-mark {
+    display: inline-block;
+    font-weight: 700;
+    color: var(--accent);
+    margin-right: 4px;
+  }
+  .qa-item.open .qa-a { display: block; }
+
+  /* HIGHLIGHT */
+  .highlight {
+    background: linear-gradient(135deg, var(--primary) 0%, #005580 100%);
+    color: white;
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 14px;
+  }
+  .highlight h3 { font-size: 16px; font-weight: 700; margin-bottom: 12px; opacity: 0.9; }
+  .highlight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .highlight-item {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+  .highlight-item .val {
+    font-size: 24px;
+    font-weight: 900;
+    color: var(--accent);
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .highlight-item .lbl {
+    font-size: 12px;
+    opacity: 0.7;
+    margin-top: 4px;
+  }
+
+  /* NOTICE */
+  .notice {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: #FFFBF0;
+    border: 1px solid #FDE68A;
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 13px;
+    color: #78350F;
+    margin-top: 12px;
+  }
+  .notice-icon { font-size: 18px; flex-shrink: 0; }
+
+  /* FOOTER */
+  .footer {
+    background: var(--dark);
+    color: rgba(255,255,255,0.4);
+    text-align: center;
+    padding: 30px;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+  }
+  .footer strong { color: rgba(255,255,255,0.7); }
+
+  /* RESPONSIVE */
+  @media (max-width: 600px) {
+    .hero { padding: 40px 20px 36px; }
+    .hero h1 { font-size: 26px; }
+    .toc-bar { padding: 0 16px; }
+    .main { padding: 24px 16px 60px; }
+    th, td { padding: 10px 12px; }
+  }
+
+/* ── 관리자 모드 ── */
+.admin-bar {
+  display: flex; align-items: center; gap: 10px;
+  background: #fff8ed; border: 1px solid #fcd34d;
+  border-radius: 10px; padding: 10px 16px; margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.admin-bar-label { font-size: 12px; color: #92400e; font-weight: 700; }
+.admin-toggle {
+  margin-left: auto; background: #f59e0b; color: #fff;
+  border: none; border-radius: 8px; padding: 6px 14px;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif; transition: background .2s;
+}
+.admin-toggle:hover { background: #d97706; }
+.admin-toggle.on { background: #059669; }
+.admin-toggle.on:hover { background: #047857; }
+.btn-add-row {
+  background: #2563eb; color: #fff; border: none; border-radius: 8px;
+  padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif; transition: background .2s; display: none;
+}
+.btn-add-row:hover { background: #1d4ed8; }
+.admin-mode .btn-add-row { display: inline-flex; align-items: center; gap: 4px; }
+/* 행 편집 버튼 */
+.row-actions { display: none; white-space: nowrap; }
+.admin
+
+</style>
+
+<div id="page-sinai" class="page">
+<div class="sinai-manual">
+
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-badge">HYUNDAI MOTOR · BZP 출장관리</div>
+    <h1>시내교통비<br><span>신청 매뉴얼</span></h1>
+
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc-bar">
+  <div class="toc-inner">
+    <a class="toc-item" href="#sec1"><span class="toc-num">01</span> 개요</a>
+    <a class="toc-item" href="#sec2"><span class="toc-num">02</span> 이용대상</a>
+    <a class="toc-item" href="#sec3"><span class="toc-num">03</span> 신청방법</a>
+    <a class="toc-item" href="#sec4"><span class="toc-num">04</span> 출장규정</a>
+    <a class="toc-item" href="#sec5"><span class="toc-num">05</span> 교통수단</a>
+    <a class="toc-item" href="#sec6"><span class="toc-num">06</span> 지급기준</a>
+    <a class="toc-item" href="#sec7"><span class="toc-num">07</span> FAQ</a>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- 01 개요 -->
+  <div class="section" id="sec1">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <span class="section-title">개요 및 사용 목적</span>
+      <span class="section-icon">📋</span>
+    </div>
+
+    <div class="highlight">
+      <h3>🎯 이 시스템은 무엇인가요?</h3>
+      <div class="highlight-grid">
+        <div class="highlight-item">
+          <span class="val">50km</span>
+          <div class="lbl">이하 근거리 출장 커버</div>
+        </div>
+        <div class="highlight-item">
+          <span class="val">PC</span>
+          <div class="lbl">오토웨이 시스템 전용</div>
+        </div>
+        <div class="highlight-item">
+          <span class="val">1일</span>
+          <div class="lbl">단위 신청</div>
+        </div>
+        <div class="highlight-item">
+          <span class="val">90일</span>
+          <div class="lbl">이내 소급 신청 가능</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box accent">
+      <p style="font-size:14px; color:var(--text); line-height:1.8;">
+        국내출장비 정산서에서 신청 불가한 <strong>50km 이하 구간의 근거리 출장</strong>을 커버하기 위한 별도 정산 시스템입니다.<br>
+        연구소 직원들이 근거리 출장 시 교통비를 지급받을 수 있도록 운영됩니다.
+      </p>
+    </div>
+
+    <div class="notice">
+      <span class="notice-icon">⚠️</span>
+      <span>모바일(MO 트리플러스 앱)에서는 동일 환경 제공이 불가합니다. <strong>반드시 PC에서 이용</strong>해주세요.</span>
+    </div>
+  </div>
+
+  <!-- 02 이용대상 -->
+  <div class="section" id="sec2">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <span class="section-title">이용 대상</span>
+      <span class="section-icon">👥</span>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🏭</div>
+        <div class="card-value">남양연구소</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔬</div>
+        <div class="card-value">마북연구소</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚙️</div>
+        <div class="card-value">의왕연구소</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💡</div>
+        <div class="card-value">판교연구소</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏢</div>
+        <div class="card-value">강남대로 일부</div>
+      </div>
+    </div>
+
+    <div class="info-box primary">
+      <p style="font-size:14px; font-weight:600; color:var(--primary); margin-bottom:8px;">📝 대리작성 이용 시</p>
+      <p style="font-size:13px; color:var(--text);">권한관리 → 대리작성 권한관리에서 <strong>'나'가 작성할 수 있는 출장자</strong>로 등록되어야 합니다. (국내출장비와 동일 방식)</p>
+    </div>
+  </div>
+
+  <!-- 03 신청방법 -->
+  <div class="section" id="sec3">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <span class="section-title">신청 방법 및 메뉴</span>
+      <span class="section-icon">🖥️</span>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">오토웨이 시스템 접속</div>
+          <div class="step-desc">PC 브라우저에서 오토웨이 시스템에 접속합니다. 모바일은 지원하지 않습니다.</div>
+          <span class="step-tag blue">PC 전용</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">시내교통비 신청 메뉴 선택</div>
+          <div class="step-desc">별도 생성된 <strong>시내교통비 신청</strong> 메뉴로 이동합니다. (링크로 제공)</div>
+          <span class="step-tag blue">본인작성 / 대리작성 동일 목록</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">출장 정보 입력</div>
+          <div class="step-desc">출장일, 경로, 이동수단, 식비/잡비 등을 입력합니다. 필수값 미입력 시 임시저장 불가.</div>
+          <span class="step-tag gray">필수값 입력 필요</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">결재 요청</div>
+          <div class="step-desc">작성 완료 후 결재 요청. 결재는 <strong>그룹웨어</strong>에서 결재자가 처리합니다.</div>
+          <span class="step-tag blue">그룹웨어 연동</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="step-title">지급 처리</div>
+          <div class="step-desc">남양연구소 직원이 지급 검증 후 <strong>급여/경비 계좌</strong>로 입금 처리합니다.</div>
+          <span class="step-tag gray">남양연구소 담당자 검증</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="notice">
+      <span class="notice-icon">💡</span>
+      <span>관리자는 <strong>트리플러스 &gt; 시내교통비 관리</strong> 메뉴를 사용합니다. (신청목록 전체 / 정산현황 / 지급전표관리)</span>
+    </div>
+  </div>
+
+  <!-- 04 출장규정 -->
+  <div class="section" id="sec4">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <span class="section-title">출장 규정</span>
+      <span class="section-icon">📌</span>
+    </div>
+
+    <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+      <div class="card">
+        <div class="card-icon">📅</div>
+        <div class="card-label">출장 기간</div>
+        <div class="card-value" style="font-size:14px; margin-top:8px;">1일 단위 / 평일만</div>
+        <div class="card-desc">접속일 기준 90일 이내 선택 가능<br>임시저장·반려 문서는 이전 날짜도 가능 (단, 당해년도 이내)</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🗺️</div>
+        <div class="card-label">경로 설정</div>
+        <div class="card-value" style="font-size:14px; margin-top:8px;">근무지 자동 세팅</div>
+        <div class="card-desc">출발지·복귀지는 상세근무지 자동 설정<br>남양/마북/의왕/판교/강남대로만 선택 가능 (주소 입력 불가)</div>
+      </div>
+    </div>
+
+    <div class="info-box warning">
+      <p style="font-size:14px; font-weight:700; margin-bottom:10px;">🚫 중복 신청 불가 규정</p>
+      <ul class="check-list x-list">
+        <li>국내출장비 정산서와 동일한 날짜는 시내교통비 신청 불가</li>
+        <li>주말(토·일) 출장 신청 불가</li>
+        <li>출장비 합계가 0원인 경우 신청 불가</li>
+      </ul>
+    </div>
+
+    <div class="info-box primary">
+      <p style="font-size:14px; font-weight:700; color:var(--primary); margin-bottom:10px;">👔 직급별 O/D 지원금</p>
+      <div class="table-wrap" style="margin-bottom:0; border:none;">
+        <table>
+          <tr>
+            <th>직급</th>
+            <th>O/D 지원금 체크</th>
+            <th>적용 규정</th>
+          </tr>
+          <tr>
+            <td><strong>책임연구원 (4F)</strong></td>
+            <td><span class="badge yes">✓ 가능</span></td>
+            <td>G4 규정 대우</td>
+          </tr>
+          <tr>
+            <td>책임연구원 (4F) — 미체크</td>
+            <td><span class="badge cond">미체크</span></td>
+            <td>G1~G3 (일반 직원) 동일</td>
+          </tr>
+          <tr>
+            <td>4F 외 전 직급 (임원 포함)</td>
+            <td><span class="badge no">✗ 불가</span></td>
+            <td>해당 직급 규정 적용</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 05 교통수단 -->
+  <div class="section" id="sec5">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <span class="section-title">이동수단별 지급 기준</span>
+      <span class="section-icon">🚗</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>이동수단</th>
+            <th>교통비</th>
+            <th>유류비</th>
+            <th>통행료</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>🚌 시내교통</strong><br><span style="font-size:11px;color:var(--muted)">버스, 택시 등</span></td>
+            <td><span class="badge yes">✓ 실비</span></td>
+            <td><span class="badge no">✗ 미지급</span></td>
+            <td><span class="badge no">✗ 미지급</span></td>
+          </tr>
+          <tr>
+            <td><strong>🚙 자기차량</strong></td>
+            <td><span class="badge no">✗ 미지급</span></td>
+            <td><span class="badge yes">✓ 정액</span><br><span style="font-size:11px;color:var(--muted)">오피넷 당일 기준</span></td>
+            <td><span class="badge yes">✓ 실비</span><br><span style="font-size:11px;color:var(--muted)">증빙 필수</span></td>
+          </tr>
+          <tr>
+            <td><strong>🏢 업무용/시험차</strong></td>
+            <td><span class="badge no">✗ 미지급</span></td>
+            <td><span class="badge no">✗ 미지급</span></td>
+            <td><span class="badge no">✗ 미지급</span></td>
+          </tr>
+          <tr>
+            <td><strong>👥 동승자 차량</strong></td>
+            <td><span class="badge no">✗ 미지급</span></td>
+            <td><span class="badge no">✗ 미지급</span></td>
+            <td><span class="badge no">✗ 미지급</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="notice">
+      <span class="notice-icon">⚠️</span>
+      <span><strong>주의:</strong> 1구간이라도 자기차량을 선택하면 <strong>모든 구간이 자기차량으로 자동 적용</strong>됩니다.</span>
+    </div>
+
+    <div class="info-box warning" style="margin-top:14px;">
+      <p style="font-size:14px; font-weight:700; margin-bottom:10px;">📎 파일 첨부 정책</p>
+      <ul class="check-list">
+        <li><strong>통행료:</strong> 입력 시 <strong>무조건</strong> 증빙 파일 첨부 필요</li>
+        <li><strong>교통비:</strong> 신청금액이 예상 교통비(티맵 기준)를 <strong>초과하는 경우에만</strong> 첨부 필요</li>
+      </ul>
+      <div class="notice" style="margin-top:12px;">
+        <span class="notice-icon">💡</span>
+        <span>교통비 예상금액: 티맵 최적거리 기준 API 10개 응답값 중 <strong>최대거리(가장 비싼 금액)</strong>을 기준으로 산정</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 06 지급기준 -->
+  <div class="section" id="sec6">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <span class="section-title">항목별 지급 기준</span>
+      <span class="section-icon">💰</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>지급 항목</th>
+            <th>임원</th>
+            <th>G4 대우 (책임연구원 O/D 체크)</th>
+            <th>일반 직원 (G1~G3)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>🚌 교통비</strong></td>
+            <td><span class="badge no">✗ 미지급</span></td>
+            <td><span class="badge no">✗ 미지급</span></td>
+            <td><span class="badge yes">✓ 실비</span></td>
+          </tr>
+          <tr>
+            <td><strong>⛽ 유류비</strong></td>
+            <td><span class="badge no">✗ 미지급</span></td>
+            <td><span class="badge no">✗ 미지급</span></td>
+            <td><span class="badge yes">✓ 정액</span></td>
+          </tr>
+          <tr>
+            <td><strong>🛣️ 통행료</strong></td>
+            <td><span class="badge yes">✓ 실비</span></td>
+            <td><span class="badge yes">✓ 실비</span></td>
+            <td><span class="badge yes">✓ 실비</span></td>
+          </tr>
+          <tr>
+            <td><strong>🍱 식비</strong></td>
+            <td><span class="badge yes">✓ 9,000원</span></td>
+            <td><span class="badge yes">✓ 9,000원</span></td>
+            <td><span class="badge yes">✓ 9,000원</span></td>
+          </tr>
+          <tr>
+            <td><strong>💼 잡비</strong></td>
+            <td><span class="badge no">✗ 미지급</span></td>
+            <td><span class="badge cond">조건부</span></td>
+            <td><span class="badge cond">조건부</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="info-box accent">
+      <p style="font-size:14px; font-weight:700; color:var(--primary); margin-bottom:10px;">💼 잡비 2,000원 지급 조건</p>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+        <div>
+          <p style="font-size:12px; font-weight:700; color:var(--muted); margin-bottom:6px;">G4 대우 (책임연구원)</p>
+          <ul class="check-list" style="font-size:13px;">
+            <li>업무용차/시험차 미선택 <strong>AND</strong> 식대 신청 시</li>
+          </ul>
+        </div>
+        <div>
+          <p style="font-size:12px; font-weight:700; color:var(--muted); margin-bottom:6px;">일반 직원 (G1~G3)</p>
+          <ul class="check-list" style="font-size:13px;">
+            <li>시내교통 선택 시</li>
+            <li>자기차량 선택 시</li>
+            <li>식대 신청 시</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box success">
+      <p style="font-size:14px; font-weight:700; color:var(--success); margin-bottom:6px;">💳 지급 계좌</p>
+      <p style="font-size:13px; color:var(--text);">모든 지급은 <strong>급여/경비 계좌</strong>로 고정 처리됩니다. 별도 계좌 지정 불가.</p>
+    </div>
+  </div>
+
+  <!-- 07 FAQ -->
+  <div class="section" id="sec7">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <span class="section-title">자주 묻는 질문 (FAQ)</span>
+      <span class="section-icon">❓</span>
+    </div>
+
+    <div class="qa-list">
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">저는 신청 가능한 대상인가요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 남양 / 마북 / 의왕 / 판교 / 강남대로 근무자만 신청 가능합니다. 해당 근무지가 아닌 경우 신청이 불가합니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">출장을 2~3일 연속으로 신청할 수 있나요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 시내교통비는 <strong>1일 단위</strong>로만 신청 가능합니다. 날짜별로 각각 따로 신청해주세요.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">지난 달 출장을 지금 신청해도 되나요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 접속일 기준 <strong>90일 이내</strong>라면 소급 신청이 가능합니다. 90일이 초과된 출장은 신청이 불가합니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">국내출장비 정산서에 등록한 날짜도 신청 가능한가요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 불가합니다. 국내출장비 정산서와 <strong>동일한 날짜는 중복 신청이 불가</strong>합니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">출발지를 집 주소로 변경할 수 있나요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 불가합니다. 출발지와 복귀지는 <strong>상세근무지로 자동 설정</strong>되며, 남양/마북/의왕/판교/강남대로만 선택 가능합니다. 임의 주소 입력은 지원하지 않습니다. 단, 미복귀 체크 시 편도 신청은 가능합니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">택시비가 예상 금액보다 많이 나왔는데 전액 받을 수 있나요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 티맵 기준 예상 교통비 이내라면 전액 신청 가능합니다. <strong>예상 교통비를 초과하는 경우</strong>에는 영수증 등 증빙 파일을 첨부해야 합니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">1구간은 내 차, 나머지 구간은 대중교통으로 신청할 수 있나요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 불가합니다. <strong>1구간이라도 자기차량을 선택하면 모든 구간이 자기차량으로 적용</strong>됩니다. 교통비 대신 유류비 + 통행료만 받을 수 있습니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">O/D 지원금은 무엇이고, 누가 신청할 수 있나요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 책임연구원(직급코드 4F)에게만 제공되는 추가 지원금입니다. O/D 체크 시 <strong>G4 규정 대우</strong>를 받으며, 미체크 시에는 일반 직원(G1~G3)과 동일하게 처리됩니다. 임원을 포함한 4F 이외 직급은 O/D 지원금 신청이 불가합니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">임원인데 교통비/유류비를 못 받는다고 하던데 맞나요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 맞습니다. 임원 및 G4 대우 직원은 <strong>교통비, 유류비가 지급되지 않습니다.</strong> 다만 통행료(실비)와 식비(9,000원)는 동일하게 지급됩니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">규정 금액보다 초과해서 신청해도 결재 요청이 가능한가요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 가능합니다. 초과 금액이어도 결재 요청 자체는 가능합니다. 다만 <strong>관리자 화면에 초과 여부가 표시</strong>되며, 지급 여부는 담당자 검토 후 결정됩니다.</div>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-q" onclick="toggleQA(this)">
+          <div class="qa-q-mark">Q</div>
+          <div class="qa-q-text">교통비가 입금되는 계좌를 변경할 수 있나요?</div>
+          <div class="qa-arrow">▼</div>
+        </div>
+        <div class="qa-a"><span class="qa-a-mark">A</span> 불가합니다. 모든 지급은 <strong>급여/경비 계좌</strong>로 고정 처리됩니다. 별도 계좌 지정은 지원하지 않습니다.</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <strong>현대자동차 BZP 출장관리</strong> · 시내교통비 신청 매뉴얼<br>
+  최종 업데이트: 2026.01.22 · 문의: 트리플러스 관리자
+</div>
+
+<script>
+  function toggleQA(el) {
+    const item = el.closest('.qa-item');
+    item.classList.toggle('open');
+  }
+
+  // 스무스 스크롤
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  // 섹션 페이드인
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) e.target.style.animationPlayState = 'running';
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.section').forEach(s => {
+    s.style.animationPlayState = 'paused';
+    observer.observe(s);
+  });
+</script>
+
+</div>
+</div>
+
+
+</div>
+
+</body>
+</html>

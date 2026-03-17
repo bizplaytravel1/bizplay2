@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>출장관리 AI검색 — 관리자</title>
+<!-- Firebase & SheetJS: head에서 로드 → body 스크립트 실행 전 반드시 준비됨 -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans KR',sans-serif;background:#f0f4ff;color:#1a1f36;min-height:100vh}
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.login-card{background:#fff;border:1px solid #d0d9ee;border-radius:20px;padding:48px 40px;max-width:440px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(37,99,235,.1)}
+.login-logo{font-size:48px;margin-bottom:16px}
+.login-title{font-size:22px;font-weight:700;margin-bottom:6px}
+.login-sub{font-size:13px;color:#4b5680;margin-bottom:12px;line-height:1.8}
+.login-warn{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;font-size:12px;color:#92400e;margin-bottom:24px;text-align:left;line-height:1.8}
+.google-btn{display:flex;align-items:center;gap:12px;background:#fff;border:1.5px solid #d0d9ee;border-radius:12px;padding:14px 24px;font-size:15px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;width:100%;justify-content:center;font-weight:500}
+.google-btn:hover{border-color:#2563eb;box-shadow:0 4px 16px rgba(37,99,235,.15)}
+.login-err{color:#ef4444;font-size:12px;margin-top:14px;padding:10px 14px;background:#fef2f2;border-radius:8px;display:none;text-align:left}
+#admin-app{display:none}
+header{background:#1a1f36;padding:0 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100;height:58px}
+.hdr-logo{font-size:15px;font-weight:700;color:#fff;white-space:nowrap}
+.hdr-sub{font-size:11px;color:#94a3c0;white-space:nowrap}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.user-chip{font-size:11px;color:#94a3c0;background:rgba(255,255,255,.1);border-radius:20px;padding:4px 12px;white-space:nowrap}
+.logout-btn{background:none;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;color:#94a3c0;font-family:'Noto Sans KR',sans-serif;transition:all .2s;white-space:nowrap}
+.logout-btn:hover{border-color:#ef4444;color:#ef4444}
+.layout{display:flex;min-height:calc(100vh - 58px)}
+.sidebar{width:220px;background:#fff;border-right:1px solid #e2e8f0;flex-shrink:0;position:sticky;top:58px;height:calc(100vh - 58px);overflow-y:auto}
+.sb-section{padding:14px 0 4px}
+.sb-label{font-size:10px;font-weight:700;color:#94a3c0;letter-spacing:.08em;padding:0 16px 6px;text-transform:uppercase}
+.sb-item{display:flex;align-items:center;gap:6px;padding:8px 16px;font-size:12.5px;color:#4b5680;cursor:pointer;transition:background .1s,color .1s;border-left:3px solid transparent;user-select:none}
+.sb-item:hover{background:#f8fafc;color:#1a1f36}
+.sb-item.active{background:#eff6ff;color:#2563eb;border-left-color:#2563eb;font-weight:600}
+.sb-cnt{margin-left:auto;background:#f1f5f9;border-radius:10px;padding:1px 6px;font-size:10px;font-family:monospace;color:#94a3c0;min-width:24px;text-align:center;flex-shrink:0}
+.sb-item.active .sb-cnt{background:#dbeafe;color:#2563eb}
+.sb-indent{padding-left:26px}
+.content{flex:1;padding:24px 28px;min-width:0}
+.page-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap}
+.page-title{font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px}
+.page-title small{font-size:13px;font-weight:400;color:#94a3c0}
+.page-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:none;border-radius:9px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-weight:600;transition:all .15s;white-space:nowrap}
+.btn-primary{background:#2563eb;color:#fff}.btn-primary:hover{background:#1d4ed8}
+.btn-success{background:#059669;color:#fff}.btn-success:hover{background:#047857}
+.btn-danger{background:#ef4444;color:#fff}.btn-danger:hover{background:#dc2626}
+.btn-ghost{background:#f1f5f9;color:#4b5680;border:1px solid #e2e8f0}.btn-ghost:hover{background:#e2e8f0}
+.btn-warn{background:#f59e0b;color:#fff}.btn-warn:hover{background:#d97706}
+.btn-purple{background:#7c3aed;color:#fff}.btn-purple:hover{background:#6d28d9}
+.btn-sm{padding:4px 10px;font-size:11px;border-radius:6px}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.search-wrap{position:relative}
+.search-inp{background:#fff;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 36px 8px 13px;font-size:13px;font-family:'Noto Sans KR',sans-serif;color:#1a1f36;outline:none;transition:border-color .2s;width:260px}
+.search-inp:focus{border-color:#2563eb}
+.search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3c0;font-size:16px;line-height:1;display:none}
+.search-clear.show{display:block}
+.fchips{display:flex;gap:5px;flex-wrap:wrap}
+.fchip{background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;color:#4b5680;transition:all .15s}
+.fchip:hover{border-color:#2563eb;color:#2563eb}
+.fchip.on{background:#eff6ff;border-color:#2563eb;color:#2563eb;font-weight:600}
+.tbl-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden}
+.dtbl{width:100%;border-collapse:collapse;font-size:13px}
+.dtbl th{background:#f8fafc;color:#4b5680;padding:10px 12px;text-align:left;font-weight:600;font-size:11px;border-bottom:1.5px solid #e2e8f0;white-space:nowrap}
+.dtbl td{padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#1a1f36;vertical-align:top;line-height:1.6}
+.dtbl tr:last-child td{border-bottom:none}
+.dtbl tr:hover td{background:#fafbff}
+.dtbl tr.new-row td{animation:fadeNew 3s forwards}
+@keyframes fadeNew{0%{background:#bbf7d0}100%{background:transparent}}
+.clip{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.clip-lg{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#4b5680}
+.td-r{text-align:right;white-space:nowrap}
+.tag{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;white-space:nowrap}
+.t-tp{background:#d1fae5;color:#065f46}.t-oc{background:#ffedd5;color:#92400e}
+.t-policy{background:#dbeafe;color:#1d4ed8}.t-ny{background:#fef9c3;color:#854d0e}
+.t-ov{background:#fae8ff;color:#7e22ce}.t-etc{background:#f1f5f9;color:#4b5680}
+.t-xs{background:#fee2e2;color:#991b1b}.t-ok{background:#d1fae5;color:#065f46}.t-off{background:#f1f5f9;color:#94a3c0}
+.pager{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3c0;flex-wrap:wrap;gap:8px}
+.pager-btns{display:flex;gap:3px}
+.pb{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;color:#4b5680;transition:all .15s}
+.pb:hover{border-color:#2563eb;color:#2563eb}.pb:disabled{opacity:.35;cursor:not-allowed}
+.pb.on{background:#2563eb;color:#fff;border-color:#2563eb}
+.modal-bg{display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:18px;padding:28px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.25)}
+.modal-title{font-size:17px;font-weight:700;margin-bottom:20px;color:#1a1f36}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;font-weight:700;color:#4b5680;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+.field input,.field textarea,.field select{width:100%;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:9px 12px;font-size:13px;font-family:'Noto Sans KR',sans-serif;color:#1a1f36;outline:none;transition:border-color .2s}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:#2563eb;background:#fff}
+.field textarea{min-height:80px;resize:vertical;line-height:1.7}
+.field textarea.tall{min-height:130px}
+.req{color:#ef4444}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0}
+.modal-del{margin-right:auto}
+.modal-msg{font-size:12px;text-align:right;margin-top:6px;min-height:14px;color:#059669}
+.modal-msg.err{color:#ef4444}
+.xl-modal{max-width:640px}
+.xl-zone{border:2px dashed #d0d9ee;border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;background:#f8fafc;margin-bottom:16px}
+.xl-zone:hover,.xl-zone.drag{border-color:#2563eb;background:#eff6ff}
+.xl-zone input[type=file]{display:none}
+.xl-icon{font-size:36px;margin-bottom:8px}
+.xl-text{font-size:13px;color:#4b5680}
+.xl-text strong{color:#2563eb}
+.xl-preview{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;max-height:260px;overflow-y:auto;margin-bottom:14px;display:none}
+.xl-preview table{width:100%;border-collapse:collapse;font-size:12px}
+.xl-preview th{background:#f1f5f9;padding:6px 10px;text-align:left;font-weight:600;border:1px solid #e2e8f0;color:#4b5680}
+.xl-preview td{padding:6px 10px;border:1px solid #e2e8f0;color:#1a1f36;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xl-stat{font-size:12px;color:#4b5680;margin-bottom:10px}
+.xl-stat strong{color:#2563eb}
+.xl-prog{background:#e2e8f0;border-radius:6px;height:8px;margin-top:8px;overflow:hidden;display:none}
+.xl-prog-bar{background:linear-gradient(90deg,#2563eb,#059669);height:8px;border-radius:6px;width:0%;transition:width .3s}
+.doc{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:36px;line-height:1.9;font-size:14px;max-width:800px}
+.doc h2{font-size:17px;font-weight:700;color:#2563eb;margin:28px 0 10px;padding-bottom:8px;border-bottom:2px solid #eff6ff}
+.doc h2:first-child{margin-top:0}
+.doc p,.doc li{color:#4b5680;margin-bottom:8px}
+.doc ul{padding-left:20px;margin-bottom:10px}
+.doc .ibox{background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;border-radius:8px;padding:12px 16px;margin:10px 0;font-size:13px;color:#1e40af}
+.doc .wbox{background:#fff7ed;border:1px solid #fed7aa;border-left:4px solid #f59e0b;border-radius:8px;padding:12px 16px;margin:10px 0;font-size:13px;color:#92400e}
+.doc .gbox{background:#f0fdf4;border:1px solid #86efac;border-left:4px solid #059669;border-radius:8px;padding:12px 16px;margin:10px 0;font-size:13px;color:#166534}
+.doc .step{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px;margin:10px 0}
+.doc .sr{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.doc .sr:last-child{margin-bottom:0}
+.doc .sn{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#2563eb;color:#fff;border-radius:50%;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}
+.doc table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+.doc table th{background:#f1f5f9;padding:8px 12px;text-align:left;font-weight:600;border:1px solid #e2e8f0;color:#4b5680}
+.doc table td{padding:8px 12px;border:1px solid #e2e8f0;color:#1a1f36;vertical-align:top}
+.doc code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:12px;color:#2563eb;word-break:break-all}
+.loading{text-align:center;padding:60px;color:#94a3c0;font-size:14px}
+.spin{display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:sp .8s linear infinite;margin-bottom:12px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:40px;color:#94a3c0;font-size:13px}
+
+/* ── 이미지 업로드 ── */
+.img-upload-wrap{border:2px dashed #d0d9ee;border-radius:10px;padding:20px 16px;margin-top:10px;text-align:center;cursor:pointer;transition:all .25s;background:#f8fafc}
+.img-upload-wrap:hover,.img-upload-wrap.dragover{border-color:#2563eb;background:#eff6ff;transform:scale(1.01)}
+.img-upload-wrap input[type=file]{display:none}
+.img-upload-icon{font-size:32px;margin-bottom:8px;transition:transform .2s}
+.img-upload-wrap:hover .img-upload-icon{transform:scale(1.15)}
+.img-upload-text{font-size:12px;color:#94a3c0;line-height:1.6}
+.img-upload-text strong{color:#2563eb}
+.img-preview-wrap{margin-top:10px;position:relative;display:inline-block;max-width:100%}
+.img-preview-wrap img{max-width:100%;max-height:220px;border-radius:10px;border:2px solid #e2e8f0;display:block;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.img-remove-btn{position:absolute;top:-9px;right:-9px;background:#ef4444;color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 2px 6px rgba(239,68,68,.4);transition:transform .15s}
+.img-remove-btn:hover{transform:scale(1.15)}
+/* 처리 중 오버레이 */
+.img-processing-overlay{display:none;position:absolute;inset:0;background:rgba(255,255,255,.85);border-radius:10px;align-items:center;justify-content:center;flex-direction:column;gap:8px;backdrop-filter:blur(2px)}
+.img-processing-overlay.show{display:flex}
+.img-spin{width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.img-proc-text{font-size:12px;color:#2563eb;font-weight:700}
+/* 완료 뱃지 */
+.img-ok-badge{display:none;position:absolute;bottom:8px;left:8px;background:rgba(5,150,105,.9);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;gap:4px;align-items:center}
+.img-ok-badge.show{display:flex}
+/* 진행바 제거 → 오버레이로 대체 */
+.img-progress{display:none}
+.img-url-box{font-size:11px;color:#22c55e;word-break:break-all;margin-top:6px;padding:5px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;display:none}
+/* 테이블에서 이미지 썸네일 */
+.tbl-thumb{width:36px;height:36px;object-fit:cover;border-radius:6px;border:1.5px solid #e2e8f0;cursor:pointer;transition:transform .2s}
+.tbl-thumb:hover{transform:scale(1.1)}
+/* 이미지 라이트박스 */
+.lightbox{display:none;position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.85);align-items:center;justify-content:center;padding:20px}
+.lightbox.open{display:flex}
+.lightbox img{max-width:90vw;max-height:85vh;border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+.lightbox-close{position:absolute;top:20px;right:24px;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:24px;width:44px;height:44px;border-radius:50%;cursor:pointer;backdrop-filter:blur(8px)}
+
+/* ── 체크박스 & 다운로드 ── */
+.dtbl th.cb-col,.dtbl td.cb-col{width:36px;text-align:center;padding:9px 4px}
+.row-cb,.th-cb{width:16px;height:16px;cursor:pointer;accent-color:#2563eb}
+.btn-del-sel{background:#ef4444;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;display:none;margin-left:8px;transition:background .2s}
+.btn-del-sel:hover{background:#dc2626}
+.btn-dl-excel{background:#16a34a;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:8px}
+.btn-dl-excel:hover{background:#15803d}
+.sel-count{font-size:12px;color:#ef4444;font-weight:700;margin-left:6px;display:none}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">✈️</div>
+    <div class="login-title">출장관리 AI검색 관리자</div>
+    <div class="login-sub">현대자동차 트리플러스 지식베이스<br>허가된 구글 계정으로만 접근 가능합니다.</div>
+    <div class="login-warn">⚠️ 이 페이지는 반드시 <strong>GitHub Pages</strong>에서 열어야 합니다.<br>로컬 파일(file://)에서는 구글 로그인이 작동하지 않아요.</div>
+    <button class="google-btn" id="login-btn">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Google 계정으로 로그인
+    </button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<div id="admin-app">
+  <header>
+    <div>
+      <div class="hdr-logo">✈️ 출장관리 AI검색 관리자</div>
+      <div class="hdr-sub">현대자동차 트리플러스 지식베이스 통합 관리</div>
+    </div>
+    <div class="hdr-right">
+      <span id="publish-status" style="font-size:11px;color:#fbbf24;background:rgba(251,191,36,.15);border-radius:20px;padding:4px 12px;white-space:nowrap;display:none">⏳ 대기 중인 변경사항</span>
+      <button id="instant-publish-btn" style="display:none;background:#f59e0b;border:none;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;color:#fff;font-family:'Noto Sans KR',sans-serif;font-weight:600;white-space:nowrap" title="대기 중인 변경사항을 즉시 검색에 반영합니다">⚡ 즉시 반영</button>
+      <span class="user-chip" id="uem"></span>
+      <button class="logout-btn" id="logout-btn">로그아웃</button>
+    </div>
+  </header>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sb-section">
+        <div class="sb-label">💬 Q&A 관리</div>
+        <div class="sb-item active" id="sb-qa" data-tab="qa">💬 Q&A 전체 <span class="sb-cnt" id="cn-qa">-</span></div>
+        <div class="sb-item sb-indent" id="sb-qa-tp" data-tab="qa-tp">트리플러스 <span class="sb-cnt" id="cn-qa-tp">-</span></div>
+        <div class="sb-item sb-indent" id="sb-qa-oc" data-tab="qa-oc">오큐파이 <span class="sb-cnt" id="cn-qa-oc">-</span></div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-label">📄 매뉴얼 관리</div>
+        <div class="sb-item" id="sb-man" data-tab="man">📄 매뉴얼 전체 <span class="sb-cnt" id="cn-man">-</span></div>
+        <div class="sb-item sb-indent" id="sb-man-policy" data-tab="man-policy">출장·운영정책 <span class="sb-cnt" id="cn-man-policy">-</span></div>
+        <div class="sb-item sb-indent" id="sb-man-ny" data-tab="man-ny">남양연구소 <span class="sb-cnt" id="cn-man-ny">-</span></div>
+        <div class="sb-item sb-indent" id="sb-man-nyt" data-tab="man-nyt">└ 시내교통비 <span class="sb-cnt" id="cn-man-nyt">-</span></div>
+        <div class="sb-item sb-indent" id="sb-man-ov" data-tab="man-ov">해외출장 <span class="sb-cnt" id="cn-man-ov">-</span></div>
+        <div class="sb-item sb-indent" id="sb-man-etc" data-tab="man-etc">기타 매뉴얼 <span class="sb-cnt" id="cn-man-etc">-</span></div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-label">📊 테이블 관리</div>
+        <div class="sb-item" id="sb-jungbig" data-tab="jungbig">📋 증빙규정 <span class="sb-cnt" id="cn-jungbig">-</span></div>
+        <div class="sb-item" id="sb-sukbak" data-tab="sukbak">🏠 숙박비규정 <span class="sb-cnt" id="cn-sukbak">-</span></div>
+        <div class="sb-item" id="sb-yowei" data-tab="yowei">📍 예외거리구간 <span class="sb-cnt" id="cn-yowei">-</span></div>
+        <div class="sb-item" id="sb-gita" data-tab="gita">🚌 기타교통수단 <span class="sb-cnt" id="cn-gita">-</span></div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-label">⚙️ 설정 &amp; 도움말</div>
+        <div class="sb-item" id="sb-accounts" data-tab="accounts">👤 관리자 계정</div>
+        <div class="sb-item" id="sb-help-search" data-tab="help-search">📘 AI검색 사용방법</div>
+        <div class="sb-item" id="sb-help-admin" data-tab="help-admin">🔑 관리자 사용방법</div>
+      </div>
+    </div>
+    <div class="content" id="main"></div>
+  </div>
+</div>
+
+<!-- 편집 모달 -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title"></div>
+    <div id="modal-body"></div>
+    <div class="modal-foot">
+      <button class="btn btn-danger btn-sm modal-del" id="del-btn" style="display:none">🗑️ 삭제</button>
+      <button class="btn btn-ghost" id="modal-cancel">취소</button>
+      <button class="btn btn-primary" id="modal-save">💾 저장</button>
+    </div>
+    <div class="modal-msg" id="modal-msg"></div>
+  </div>
+</div>
+
+<!-- 엑셀 업로드 모달 -->
+<div class="modal-bg" id="xl-modal">
+  <div class="modal xl-modal">
+    <div class="modal-title">📊 Q&amp;A 일괄 등록 (엑셀)</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="btn btn-ghost" id="dl-sample-btn">📥 예시 엑셀 다운로드</button>
+      <span style="font-size:12px;color:#94a3c0;align-self:center">← 먼저 양식 다운로드 후 작성하세요</span>
+    </div>
+    <div class="xl-zone" id="xl-zone">
+      <input type="file" id="xl-file" accept=".xlsx,.xls">
+      <div class="xl-icon">📂</div>
+      <div class="xl-text">클릭하거나 파일을 여기로 드래그<br><strong>.xlsx / .xls</strong> 파일만 가능</div>
+    </div>
+    <div class="xl-stat" id="xl-stat" style="display:none"></div>
+    <div class="xl-preview" id="xl-preview"></div>
+    <div class="xl-prog" id="xl-prog"><div class="xl-prog-bar" id="xl-prog-bar"></div></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="xl-cancel">취소</button>
+      <button class="btn btn-success" id="xl-upload-btn" style="display:none">🚀 일괄 등록하기</button>
+    </div>
+    <div class="modal-msg" id="xl-msg"></div>
+  </div>
+</div>
+
+
+<!-- 라이트박스 -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" id="lb-close">✕</button>
+  <img id="lb-img" src="" alt="">
+</div>
+
+<!-- ★ 메인 스크립트: body 맨 끝 → DOM + Firebase 모두 로드된 후 실행 보장 -->
+<script>
+(function(){
+'use strict';
+console.log('[관리자] 스크립트 초기화 시작');
+
+/* ── Firebase 초기화 ── */
+console.log('[관리자] Firebase SDK 상태:', typeof firebase !== 'undefined' ? 'OK' : 'NOT LOADED');
+firebase.initializeApp({
+  apiKey:"AIzaSyCvUli2EwQiaEdWtQdpFHmqIhtTbnbixaE",
+  authDomain:"bizplay-kb.firebaseapp.com",
+  projectId:"bizplay-kb",
+  storageBucket:"bizplay-kb.firebasestorage.app",
+  messagingSenderId:"424940526706",
+  appId:"1:424940526706:web:9857867a77bfdfdafff6eb"
+});
+var db=firebase.firestore(), auth=firebase.auth(), storage=firebase.storage();
+
+/* ── 상태 ── */
+var CU=null, ALLOWED=[], DATA={qa:[],manual:[],tables:{},accounts:[]};
+var TAB='qa', PAGE=50, CUR=1, KW='', FILTER='all', IMG_FILTER='all';
+var EDIT_ID=null, EDIT_COL=null, EDIT_TBL=null, LAST_NEW_ID=null, XL_ROWS=[], XL_SRC='트리플러스', XL_MODE='qa', XL_TNAME='';
+
+/* ── 디바운스 ── */
+function debounce(fn,d){var t=null;return function(){var a=arguments,ctx=this;clearTimeout(t);t=setTimeout(function(){fn.apply(ctx,a);},d);};}
+var debouncedSearch=debounce(function(v){KW=v;CUR=1;render();},300);
+
+/* ── 인증 ── */
+function signIn(){
+  if(location.protocol==='file:'){showLoginErr('⚠️ GitHub Pages 주소에서 열어주세요.');return;}
+  console.log('[관리자] 로그인 시도...');
+  var loginBtn = document.getElementById('login-btn');
+  if(loginBtn){ loginBtn.textContent='로그인 중...'; loginBtn.disabled=true; }
+  var p=new firebase.auth.GoogleAuthProvider();
+  p.addScope('email');
+  auth.signInWithPopup(p).then(function(result){
+    console.log('[관리자] 팝업 로그인 성공:', result.user.email);
+  }).catch(function(e){
+    console.warn('[관리자] 팝업 실패:', e.code, e.message);
+    if(loginBtn){ loginBtn.textContent='Google 계정으로 로그인'; loginBtn.disabled=false; }
+    if(e.code==='auth/popup-blocked'||e.code==='auth/popup-closed-by-user'||e.code==='auth/cancelled-popup-request'){
+      console.log('[관리자] 팝업 차단됨 → redirect로 전환');
+      showLoginErr('팝업이 차단되었습니다. Redirect 방식으로 재시도합니다...');
+      setTimeout(function(){ auth.signInWithRedirect(p); }, 1500);
+    } else if(e.code==='auth/network-request-failed'){
+      showLoginErr('네트워크 오류. 인터넷 연결을 확인하세요.');
+    } else if(e.code==='auth/invalid-api-key'||e.code==='auth/app-not-authorized'){
+      showLoginErr('Firebase 설정 오류: ' + e.code + '\n도메인 승인을 확인하세요.');
+    } else {
+      showLoginErr('로그인 오류 ['+e.code+']: '+e.message);
+    }
+  });
+}
+function showLoginErr(m){var el=document.getElementById('login-err');el.textContent=m;el.style.display='block';}
+
+auth.getRedirectResult().then(function(result){
+  if(result && result.user) console.log('[관리자] Redirect 로그인 성공:', result.user.email);
+}).catch(function(e){
+  console.error('[관리자] Redirect 결과 오류:', e.code, e.message);
+  if(e.code) showLoginErr('오류('+e.code+'): '+e.message);
+});
+console.log('[관리자] Firebase 초기화 완료');
+auth.onAuthStateChanged(async function(u){
+  console.log('[관리자] 인증 상태 변경:', u ? u.email : 'null');
+  if(!u){
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('admin-app').style.display='none';
+    return;
+  }
+  try{var s=await db.collection('admin_accounts').get();ALLOWED=s.docs.map(function(d){return d.data().email;});}catch(e){}
+  if(ALLOWED.length>0&&ALLOWED.indexOf(u.email)<0){auth.signOut();showLoginErr('❌ 접근 불가: '+u.email);return;}
+  CU=u;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('admin-app').style.display='block';
+  document.getElementById('uem').textContent=u.email;
+  document.getElementById('main').innerHTML='<div class="loading"><div class="spin"></div><br>데이터 로딩 중...</div>';
+  await loadAll();
+  go('qa'); checkPendingPublish();
+});
+
+/* ── 데이터 로드 ── */
+// 최초 1회만 전체 로드. 이후 저장/삭제는 메모리만 패치하여 Firestore 재읽기 없음.
+async function loadAll(){
+  var[q,m,t,a]=await Promise.all([
+    db.collection('qa').get(),
+    db.collection('manual').get(),
+    db.collection('tables').get(),
+    db.collection('admin_accounts').get()
+  ]);
+  DATA.qa=q.docs.map(function(d){return Object.assign({_id:d.id},d.data());});
+  DATA.manual=m.docs.map(function(d){return Object.assign({_id:d.id},d.data());});
+  DATA.tables={};
+  t.docs.forEach(function(d){var r=Object.assign({_id:d.id},d.data());var tn=r.tableName;if(!DATA.tables[tn])DATA.tables[tn]=[];DATA.tables[tn].push(r);});
+  DATA.accounts=a.docs.map(function(d){return Object.assign({_id:d.id},d.data());});
+  updateCounts();
+}
+
+/* ── 메모리 패치 (저장/삭제 후 Firestore 재읽기 없이 DATA 갱신) ── */
+function patchSave(col, id, data, tbl){
+  if(col==='qa'){
+    var idx=DATA.qa.findIndex(function(r){return r._id===id;});
+    if(idx>=0) Object.assign(DATA.qa[idx],data); else DATA.qa.unshift(Object.assign({_id:id},data));
+  } else if(col==='manual'){
+    var idx=DATA.manual.findIndex(function(r){return r._id===id;});
+    if(idx>=0) Object.assign(DATA.manual[idx],data); else DATA.manual.unshift(Object.assign({_id:id},data));
+  } else if(col==='tables'){
+    var tn=tbl||data.tableName;
+    if(!DATA.tables[tn])DATA.tables[tn]=[];
+    var idx=DATA.tables[tn].findIndex(function(r){return r._id===id;});
+    if(idx>=0) Object.assign(DATA.tables[tn][idx],data); else DATA.tables[tn].unshift(Object.assign({_id:id},data));
+  }
+  updateCounts();
+}
+function patchDelete(col, id, tbl){
+  if(col==='qa') DATA.qa=DATA.qa.filter(function(r){return r._id!==id;});
+  else if(col==='manual') DATA.manual=DATA.manual.filter(function(r){return r._id!==id;});
+  else if(col==='tables'&&tbl) DATA.tables[tbl]=( DATA.tables[tbl]||[]).filter(function(r){return r._id!==id;});
+  updateCounts();
+}
+function patchXlUpload(col, rows, tbl){
+  if(col==='qa') rows.forEach(function(r){DATA.qa.push(Object.assign({_id:r.id},r));});
+  else if(col==='manual') rows.forEach(function(r){DATA.manual.push(Object.assign({_id:r.id},r));});
+  else if(col==='tables'){
+    var tn=tbl||(rows[0]&&rows[0].tableName);
+    if(tn){if(!DATA.tables[tn])DATA.tables[tn]=[];rows.forEach(function(r){DATA.tables[tn].push(Object.assign({_id:r.id},r));});}
+  }
+  updateCounts();
+}
+function sc(id,n){var el=document.getElementById(id);if(el)el.textContent=n;}
+function updateCounts(){
+  var qa=DATA.qa,man=DATA.manual;
+  sc('cn-qa',qa.length);
+  sc('cn-qa-tp',qa.filter(function(r){return r.s==='트리플러스';}).length);
+  sc('cn-qa-oc',qa.filter(function(r){return r.s==='오큐파이';}).length);
+  sc('cn-man',man.length);
+  sc('cn-man-policy',man.filter(function(r){return r.s==='출장정책'||r.s==='운영정책';}).length);
+  sc('cn-man-ny',man.filter(function(r){return r.s==='남양연구소'||r.s==='남양연구소-시내교통비';}).length);
+  sc('cn-man-nyt',man.filter(function(r){return r.s==='남양연구소-시내교통비';}).length);
+  sc('cn-man-ov',man.filter(function(r){return r.s==='해외출장을위한이동';}).length);
+  var ET=['출장정책','운영정책','남양연구소','남양연구소-시내교통비','해외출장을위한이동'];
+  sc('cn-man-etc',man.filter(function(r){return ET.indexOf(r.s)<0;}).length);
+  sc('cn-jungbig',(DATA.tables['증빙규정']||[]).length);
+  sc('cn-sukbak',(DATA.tables['숙박비규정']||[]).length);
+  sc('cn-yowei',(DATA.tables['예외거리허용구간']||[]).length);
+  sc('cn-gita',(DATA.tables['기타교통수단구간']||[]).length);
+}
+
+/* ── 탭 이동 ── */
+function go(tab){
+  TAB=tab;CUR=1;KW='';FILTER='all';IMG_FILTER='all';LAST_NEW_ID=null;
+  document.querySelectorAll('.sb-item').forEach(function(e){e.classList.remove('active');});
+  var sb=document.getElementById('sb-'+tab);if(sb)sb.classList.add('active');
+  render();
+}
+
+/* ── 렌더 ── */
+function render(){
+  var m=document.getElementById('main');
+  if(TAB==='qa')          renderQA(m,null);
+  else if(TAB==='qa-tp')  renderQA(m,'트리플러스');
+  else if(TAB==='qa-oc')  renderQA(m,'오큐파이');
+  else if(TAB==='man')         renderMan(m,null,'📄 매뉴얼 전체');
+  else if(TAB==='man-policy')  renderMan(m,['출장정책','운영정책'],'📋 출장·운영정책');
+  else if(TAB==='man-ny')      renderMan(m,['남양연구소','남양연구소-시내교통비'],'🚗 남양연구소');
+  else if(TAB==='man-nyt')     renderMan(m,['남양연구소-시내교통비'],'🚌 남양시내교통비');
+  else if(TAB==='man-ov')      renderMan(m,['해외출장을위한이동'],'✈️ 해외출장');
+  else if(TAB==='man-etc')     renderManEtc(m);
+  else if(TAB==='jungbig')  renderTbl(m,'증빙규정','📋 증빙규정');
+  else if(TAB==='sukbak')   renderTbl(m,'숙박비규정','🏠 숙박비규정');
+  else if(TAB==='yowei')    renderTbl(m,'예외거리허용구간','📍 예외거리구간');
+  else if(TAB==='gita')     renderTbl(m,'기타교통수단구간','🚌 기타교통수단');
+  else if(TAB==='accounts')    renderAccounts(m);
+  else if(TAB==='help-search') renderHelpSearch(m);
+  else if(TAB==='help-admin')  renderHelpAdmin(m);
+}
+
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function sortNew(rows){if(!LAST_NEW_ID)return rows;var n=rows.find(function(r){return r._id===LAST_NEW_ID;});return n?[n].concat(rows.filter(function(r){return r._id!==LAST_NEW_ID;})):rows;}
+function hasImg(r){return !!(r.img0||r.img1||r.img2||r.img3||r.img4||r.img);}
+function applyKF(rows,fields){
+  var r=rows;
+  if(FILTER!=='all')r=r.filter(function(x){return x.s===FILTER;});
+  if(IMG_FILTER==='with')r=r.filter(function(x){return hasImg(x);});
+  else if(IMG_FILTER==='without')r=r.filter(function(x){return !hasImg(x);});
+  if(KW){var kw=KW.toLowerCase();r=r.filter(function(x){return fields.some(function(f){return (x[f]||'').toLowerCase().indexOf(kw)>=0;});});}
+  return r;
+}
+function mkImgRadio(){
+  var opts=[['all','전체'],['with','이미지 첨부'],['without','이미지 미첨부']];
+  var h='<div style="display:flex;align-items:center;gap:14px;margin-left:4px">';
+  opts.forEach(function(o){
+    var chk=IMG_FILTER===o[0]?' checked':'';
+    h+='<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;color:#4b5680;white-space:nowrap">'
+      +'<input type="radio" name="img-filter" value="'+o[0]+'"'+chk+' style="accent-color:#2563eb;cursor:pointer">'+o[1]+'</label>';
+  });
+  return h+'</div>';
+}
+function getQTag(s){return s==='트리플러스'?'<span class="tag t-tp">트리플러스</span>':s==='오큐파이'?'<span class="tag t-oc">오큐파이</span>':'<span class="tag t-etc">'+esc(s)+'</span>';}
+function getMTag(s){
+  if(s==='출장정책'||s==='운영정책')return '<span class="tag t-policy">'+esc(s)+'</span>';
+  if(s==='남양연구소'||s==='남양연구소-시내교통비')return '<span class="tag t-ny">'+esc(s)+'</span>';
+  if(s==='해외출장을위한이동')return '<span class="tag t-ov">해외출장</span>';
+  return '<span class="tag t-etc">'+esc(s)+'</span>';
+}
+function mkSearch(ph){
+  return '<div class="search-wrap"><input class="search-inp" id="kw-inp" placeholder="'+ph+'" value="'+esc(KW)+'"><button class="search-clear'+(KW?' show':'')+'" id="kw-clr">✕</button></div>';
+}
+function mkPager(total){
+  var tp=Math.ceil(total/PAGE);if(tp<=1)return '';
+  var h='<div class="pager"><span>'+((CUR-1)*PAGE+1)+'-'+Math.min(CUR*PAGE,total)+' / '+total+'건</span><div class="pager-btns">';
+  h+='<button class="pb" data-p="'+(CUR-1)+'" '+(CUR<=1?'disabled':'')+'>이전</button>';
+  var s=Math.max(1,CUR-2),e=Math.min(tp,s+4);
+  for(var i=s;i<=e;i++)h+='<button class="pb'+(i===CUR?' on':'')+'" data-p="'+i+'">'+i+'</button>';
+  h+='<button class="pb" data-p="'+(CUR+1)+'" '+(CUR>=tp?'disabled':'')+'>다음</button>';
+  return h+'</div></div>';
+}
+
+/* ── Q&A 렌더 ── */
+function renderQA(m,src){
+  var rows=DATA.qa.filter(function(r){return !src||r.s===src;});
+  rows=applyKF(rows,['q','a','s','c']);rows=sortNew(rows);
+  var total=rows.length,prows=rows.slice((CUR-1)*PAGE,CUR*PAGE);
+  var defSrc=src||'트리플러스';
+  var h='<div class="page-hdr"><div class="page-title">'+(src?getQTag(src)+' Q&A':'💬 Q&A 전체')+' <small>총 '+total+'건</small></div>';
+  h+='<div class="page-actions">';
+  h+='<button class="btn-dl-excel" data-dl-excel="qa|'+(src||'all')+'">⬇️ 엑셀 다운로드</button>';
+  h+='<button class="btn btn-purple" data-xl="'+defSrc+'">📊 엑셀 일괄 등록</button>';
+  h+='<button class="btn btn-success" data-add="qa|'+defSrc+'">+ Q&A 추가</button>';
+  h+='</div></div>';
+  h+='<div class="toolbar">'+mkSearch('질문, 답변, 소스 검색...');
+  if(!src){h+='<div class="fchips"><span class="fchip'+(FILTER==='all'?' on':'')+'" data-f="all">전체</span><span class="fchip'+(FILTER==='트리플러스'?' on':'')+'" data-f="트리플러스">트리플러스</span><span class="fchip'+(FILTER==='오큐파이'?' on':'')+'" data-f="오큐파이">오큐파이</span></div>';}
+  h+=mkImgRadio();
+  h+='</div>';
+  h+='<div style="display:flex;align-items:center;padding:6px 0 4px"><button class="btn-del-sel" id="btn-del-sel">🗑️ 선택 삭제</button><span class="sel-count" id="sel-count"></span></div>';
+  h+='<div class="tbl-wrap"><table class="dtbl" id="cur-tbl"><thead><tr>';
+  h+='<th class="cb-col"><input type="checkbox" class="th-cb" id="th-cb" title="전체선택"></th>';
+  h+='<th style="width:85px">소스</th><th style="width:85px">카테고리</th><th>질문</th><th>답변</th><th style="width:44px">이미지</th><th style="width:50px">AI제외</th><th style="width:60px">관리</th></tr></thead><tbody>';
+  if(!prows.length)h+='<tr><td colspan="8" class="empty">검색 결과 없음</td></tr>';
+  prows.forEach(function(r){
+    var isN=LAST_NEW_ID&&r._id===LAST_NEW_ID;
+    var imgs=[r.img0,r.img1,r.img2,r.img3,r.img4,r.img].filter(Boolean);
+    var imgHtml=imgs.length?'<img src="'+imgs[0]+'" class="tbl-thumb" title="이미지 '+imgs.length+'개">':'';
+    h+='<tr'+(isN?' class="new-row"':'')+' data-id="'+r._id+'" data-col="qa">';
+    h+='<td class="cb-col"><input type="checkbox" class="row-cb" data-id="'+r._id+'" data-col="qa"></td>';
+    h+='<td>'+getQTag(r.s)+'</td><td style="font-size:11px;color:#94a3c0">'+esc(r.c||'')+'</td><td class="clip">'+esc(r.q||'')+'</td><td class="clip-lg">'+esc(r.a||'')+'</td><td>'+imgHtml+'</td><td>'+(r.xs?'<span class="tag t-xs">제외</span>':'')+'</td>';
+    h+='<td class="td-r"><button class="btn btn-warn btn-sm" data-edit="qa|'+r._id+'">수정</button></td></tr>';
+  });
+  h+='</tbody></table>'+mkPager(total)+'</div>';
+  m.innerHTML=h;bindEvents(m);bindCheckbox(m,rows);
+}
+
+/* ── 매뉴얼 렌더 ── */
+var ETCS=['출장정책','운영정책','남양연구소','남양연구소-시내교통비','해외출장을위한이동'];
+function renderMan(m,sources,title){
+  var rows=DATA.manual.filter(function(r){return !sources||sources.indexOf(r.s)>=0;});
+  rows=applyKF(rows,['q','a','s','c','it']);rows=sortNew(rows);
+  var total=rows.length,prows=rows.slice((CUR-1)*PAGE,CUR*PAGE);
+  var defSrc=sources?sources[0]:'출장정책';
+  var srcKey=sources?sources.join(','):'all';
+  var h='<div class="page-hdr"><div class="page-title">'+title+' <small>총 '+total+'건</small></div>';
+  h+='<div class="page-actions">';
+  h+='<button class="btn-dl-excel" data-dl-excel="manual|'+srcKey+'">⬇️ 엑셀 다운로드</button>';
+  h+='<button class="btn btn-purple" data-xl="manual|'+defSrc+'">📊 엑셀 일괄 등록</button>';
+  h+='<button class="btn btn-success" data-add="manual|'+defSrc+'">+ 항목 추가</button>';
+  h+='</div></div>';
+  h+='<div class="toolbar">'+mkSearch('소스, 카테고리, 질문, 답변 검색...')+mkImgRadio()+'</div>';
+  h+='<div style="display:flex;align-items:center;padding:6px 0 4px"><button class="btn-del-sel" id="btn-del-sel">🗑️ 선택 삭제</button><span class="sel-count" id="sel-count"></span></div>';
+  h+=manTblHTML(prows,total,rows);m.innerHTML=h;bindEvents(m);bindCheckbox(m,rows);
+}
+function renderManEtc(m){
+  var rows=DATA.manual.filter(function(r){return ETCS.indexOf(r.s)<0;});
+  rows=applyKF(rows,['q','a','s','c','it']);rows=sortNew(rows);
+  var total=rows.length,prows=rows.slice((CUR-1)*PAGE,CUR*PAGE);
+  var h='<div class="page-hdr"><div class="page-title">📋 기타 매뉴얼 <small>총 '+total+'건</small></div>';
+  h+='<div class="page-actions"><button class="btn btn-success" data-add="manual|증빙규정">+ 항목 추가</button></div></div>';
+  h+='<div class="toolbar">'+mkSearch('소스, 카테고리, 질문 검색...')+mkImgRadio()+'</div>';
+  h+='<div style="display:flex;align-items:center;padding:6px 0 4px"><button class="btn-del-sel" id="btn-del-sel">🗑️ 선택 삭제</button><span class="sel-count" id="sel-count"></span></div>';
+  h+=manTblHTML(prows,total,rows);m.innerHTML=h;bindEvents(m);bindCheckbox(m,rows);
+}
+function manTblHTML(prows,total,allRows){
+  var h='<div class="tbl-wrap"><table class="dtbl" id="cur-tbl"><thead><tr>';
+  h+='<th class="cb-col"><input type="checkbox" class="th-cb" id="th-cb" title="전체선택"></th>';
+  h+='<th style="width:110px">소스</th><th style="width:70px">카테고리</th><th style="width:110px">항목명</th><th>질문</th><th>답변</th><th style="width:44px">이미지</th><th style="width:50px">AI제외</th><th style="width:60px">관리</th></tr></thead><tbody>';
+  if(!prows.length)h+='<tr><td colspan="9" class="empty">검색 결과 없음</td></tr>';
+  prows.forEach(function(r){
+    var isN=LAST_NEW_ID&&r._id===LAST_NEW_ID;
+    var imgs=[r.img0,r.img1,r.img2,r.img3,r.img4,r.img].filter(Boolean);
+    var mImgHtml=imgs.length?'<img src="'+imgs[0]+'" class="tbl-thumb" title="이미지 '+imgs.length+'개">':'';
+    h+='<tr'+(isN?' class="new-row"':'')+' data-id="'+r._id+'" data-col="manual">';
+    h+='<td class="cb-col"><input type="checkbox" class="row-cb" data-id="'+r._id+'" data-col="manual"></td>';
+    h+='<td>'+getMTag(r.s)+'</td><td style="font-size:11px;color:#94a3c0">'+esc(r.c||'')+'</td><td class="clip" style="font-size:11px;color:#4b5680">'+esc(r.it||'')+'</td><td class="clip">'+esc(r.q||'')+'</td><td class="clip-lg">'+esc(r.a||'')+'</td><td>'+mImgHtml+'</td><td>'+(r.xs?'<span class="tag t-xs">제외</span>':'')+'</td>';
+    h+='<td class="td-r"><button class="btn btn-warn btn-sm" data-edit="manual|'+r._id+'">수정</button></td></tr>';
+  });
+  return h+'</tbody></table>'+mkPager(total)+'</div>';
+}
+
+/* ── 테이블 렌더 ── */
+var TBL_C={'증빙규정':['type','cat','case','content','remark'],'숙박비규정':['purpose','usergrp','pay_type','amount','option','remark'],'예외거리허용구간':['from','to','type','status'],'기타교통수단구간':['from','to','amount']};
+var TBL_H={'증빙규정':['증빙유형','분류','케이스','내용','비고'],'숙박비규정':['출장목적','사용자그룹','지급유형','금액','옵션','비고'],'예외거리허용구간':['출발지','도착지','구간유형','사용여부'],'기타교통수단구간':['출발지','도착지','정액요금']};
+function renderTbl(m,tname,title){
+  var cols=TBL_C[tname]||[],heads=TBL_H[tname]||[];
+  var rows=(DATA.tables[tname]||[]).filter(function(r){if(!KW)return true;var kw=KW.toLowerCase();return cols.some(function(k){return (r[k]||'').toLowerCase().indexOf(kw)>=0;});});
+  rows=sortNew(rows);
+  var total=rows.length,prows=rows.slice((CUR-1)*PAGE,CUR*PAGE);
+  var h='<div class="page-hdr"><div class="page-title">'+title+' <small>총 '+total+'건</small></div>';
+  h+='<div class="page-actions">';
+  h+='<button class="btn-dl-excel" data-dl-excel="tables|'+tname+'">⬇️ 엑셀 다운로드</button>';
+  h+='<button class="btn btn-purple" data-xl="tables|'+tname+'">📊 엑셀 일괄 등록</button>';
+  h+='<button class="btn btn-success" data-add="tables|'+tname+'">+ 항목 추가</button>';
+  h+='</div></div>';
+  h+='<div class="toolbar">'+mkSearch('검색...')+'</div>';
+  h+='<div style="display:flex;align-items:center;padding:6px 0 4px"><button class="btn-del-sel" id="btn-del-sel">🗑️ 선택 삭제</button><span class="sel-count" id="sel-count"></span></div>';
+  h+='<div class="tbl-wrap"><table class="dtbl" id="cur-tbl"><thead><tr>';
+  h+='<th class="cb-col"><input type="checkbox" class="th-cb" id="th-cb" title="전체선택"></th>';
+  heads.forEach(function(hd){h+='<th>'+hd+'</th>';});
+  h+='<th style="width:60px">관리</th></tr></thead><tbody>';
+  if(!prows.length)h+='<tr><td colspan="'+(cols.length+2)+'" class="empty">검색 결과 없음</td></tr>';
+  prows.forEach(function(r){
+    var isN=LAST_NEW_ID&&r._id===LAST_NEW_ID;
+    h+='<tr'+(isN?' class="new-row"':'')+' data-id="'+r._id+'" data-col="tables" data-tbl="'+tname+'">';
+    h+='<td class="cb-col"><input type="checkbox" class="row-cb" data-id="'+r._id+'" data-col="tables" data-tbl="'+tname+'"></td>';
+    cols.forEach(function(k){var v=esc(r[k]||'');if(k==='status')v='<span class="tag '+(r[k]==='사용'?'t-ok':'t-off')+'">'+esc(r[k]||'')+'</span>';h+='<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+v+'</td>';});
+    h+='<td class="td-r"><button class="btn btn-warn btn-sm" data-edit="tables|'+r._id+'|'+tname+'">수정</button></td></tr>';
+  });
+  h+='</tbody></table>'+mkPager(total)+'</div>';
+  m.innerHTML=h;bindEvents(m);bindCheckbox(m,rows);
+}
+
+/* ── 이벤트 바인딩 (data-* 속성 기반, onclick 없음) ── */
+function bindEvents(m){
+  /* 검색 */
+  var inp=m.querySelector('#kw-inp');
+  if(inp){
+    inp.addEventListener('input',function(){
+      var clr=m.querySelector('#kw-clr');
+      if(clr)clr.className='search-clear'+(this.value?' show':'');
+      debouncedSearch(this.value);
+    });
+  }
+  /* 검색 클리어 */
+  var clr=m.querySelector('#kw-clr');
+  if(clr){clr.addEventListener('click',function(){KW='';CUR=1;var i=m.querySelector('#kw-inp');if(i)i.value='';render();});}
+  /* 필터 칩 */
+  m.querySelectorAll('[data-f]').forEach(function(el){el.addEventListener('click',function(){FILTER=this.dataset.f;CUR=1;render();});});
+  /* 이미지 필터 라디오 */
+  m.querySelectorAll('input[name="img-filter"]').forEach(function(el){el.addEventListener('change',function(){IMG_FILTER=this.value;CUR=1;render();});});
+  /* 페이지 버튼 */
+  m.querySelectorAll('[data-p]').forEach(function(el){el.addEventListener('click',function(){if(this.disabled)return;CUR=parseInt(this.dataset.p);render();window.scrollTo(0,0);});});
+  /* 추가 버튼 */
+  m.querySelectorAll('[data-add]').forEach(function(el){el.addEventListener('click',function(){var p=this.dataset.add.split('|');openAdd(p[0],p[1]);});});
+  /* 수정 버튼 */
+  m.querySelectorAll('[data-edit]').forEach(function(el){el.addEventListener('click',function(){var p=this.dataset.edit.split('|');openEdit(p[0],p[1],p[2]);});});
+  /* 엑셀 업로드 버튼 */
+  m.querySelectorAll('[data-xl]').forEach(function(el){el.addEventListener('click',function(){openXlModal(this.dataset.xl);});});
+  /* 엑셀 다운로드 버튼 */
+  m.querySelectorAll('[data-dl-excel]').forEach(function(el){el.addEventListener('click',function(){downloadExcel(this.dataset.dlExcel);});});
+}
+
+/* ── 체크박스 바인딩 ── */
+function bindCheckbox(m, allRows){
+  var thCb=m.querySelector('#th-cb');
+  var delBtn=m.querySelector('#btn-del-sel');
+  var selCnt=m.querySelector('#sel-count');
+
+  function updateDelBtn(){
+    var checked=m.querySelectorAll('.row-cb:checked');
+    if(delBtn){
+      delBtn.style.display=checked.length?'inline-block':'none';
+    }
+    if(selCnt){
+      selCnt.style.display=checked.length?'inline':'none';
+      selCnt.textContent=checked.length+'개 선택됨';
+    }
+    if(thCb){
+      var all=m.querySelectorAll('.row-cb');
+      thCb.indeterminate=checked.length>0&&checked.length<all.length;
+      thCb.checked=all.length>0&&checked.length===all.length;
+    }
+  }
+
+  if(thCb){
+    thCb.addEventListener('change',function(){
+      m.querySelectorAll('.row-cb').forEach(function(cb){cb.checked=thCb.checked;});
+      updateDelBtn();
+    });
+  }
+
+  m.querySelectorAll('.row-cb').forEach(function(cb){
+    cb.addEventListener('change',updateDelBtn);
+  });
+
+  if(delBtn){
+    delBtn.addEventListener('click',function(){
+      var checked=m.querySelectorAll('.row-cb:checked');
+      if(!checked.length)return;
+      if(!confirm(checked.length+'개 항목을 삭제하시겠습니까? 복구가 불가합니다.'))return;
+      bulkDelete(checked);
+    });
+  }
+}
+
+/* ── 선택 항목 일괄 삭제 ── */
+async function bulkDelete(checkedCbs){
+  var ids=[];
+  checkedCbs.forEach(function(cb){
+    ids.push({id:cb.dataset.id, col:cb.dataset.col, tbl:cb.dataset.tbl||null});
+  });
+  try{
+    var batch=db.batch();
+    ids.forEach(function(item){
+      batch.delete(db.collection(item.col).doc(item.id));
+    });
+    await batch.commit();
+    LAST_NEW_ID=null;
+    // 메모리 패치: 일괄 삭제된 항목 제거
+    ids.forEach(function(item){ patchDelete(item.col, item.id, item.tbl); });
+    render();
+  }catch(e){alert('삭제 실패: '+e.message);}
+}
+
+/* ── 엑셀 다운로드 ── */
+function downloadExcel(key){
+  var parts=key.split('|');
+  var type=parts[0]; // qa / manual / tables
+  var filter=parts[1]||'all';
+  var wb=XLSX.utils.book_new();
+
+  if(type==='qa'){
+    var rows=DATA.qa.filter(function(r){return filter==='all'||r.s===filter;});
+    var aoa=[['소스','카테고리','질문','답변','비고','AI검색제외']];
+    rows.forEach(function(r){aoa.push([r.s||'',r.c||'',r.q||'',r.a||'',r.r||'',r.xs?'제외':'포함']);});
+    var ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:14},{wch:14},{wch:40},{wch:60},{wch:20},{wch:10}];
+    XLSX.utils.book_append_sheet(wb,ws,'Q&A');
+    XLSX.writeFile(wb,'QA_'+(filter==='all'?'전체':filter)+'_'+_today()+'.xlsx');
+
+  } else if(type==='manual'){
+    var srcs=filter==='all'?null:filter.split(',');
+    var rows=DATA.manual.filter(function(r){return !srcs||srcs.indexOf(r.s)>=0;});
+    var aoa=[['소스','카테고리','항목명','질문/제목','답변/내용','비고','AI검색제외']];
+    rows.forEach(function(r){aoa.push([r.s||'',r.c||'',r.it||'',r.q||'',r.a||'',r.r||'',r.xs?'제외':'포함']);});
+    var ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:18},{wch:14},{wch:20},{wch:40},{wch:60},{wch:20},{wch:10}];
+    XLSX.utils.book_append_sheet(wb,ws,'매뉴얼');
+    XLSX.writeFile(wb,'매뉴얼_'+(filter==='all'?'전체':filter.split(',')[0])+'_'+_today()+'.xlsx');
+
+  } else if(type==='tables'){
+    var tname=filter;
+    var cols=TBL_C[tname]||[];
+    var heads=TBL_H[tname]||[];
+    var rows=DATA.tables[tname]||[];
+    var aoa=[heads];
+    rows.forEach(function(r){aoa.push(cols.map(function(k){return r[k]||'';}));});
+    var ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=heads.map(function(){return {wch:20};});
+    XLSX.utils.book_append_sheet(wb,ws,tname);
+    XLSX.writeFile(wb,tname+'_'+_today()+'.xlsx');
+  }
+}
+function _today(){var d=new Date();return d.getFullYear()+''+(d.getMonth()+1+'').padStart(2,'0')+(''+d.getDate()).padStart(2,'0');}
+
+/* ── 관리자 계정 ── */
+function renderAccounts(m){
+  var h='<div class="page-hdr"><div class="page-title">👤 관리자 계정</div>';
+  h+='<div class="page-actions"><button class="btn btn-success" id="add-acc-btn">+ 계정 추가</button></div></div>';
+  h+='<div class="tbl-wrap"><table class="dtbl"><thead><tr><th>이메일</th><th>추가일</th><th>추가한 계정</th><th style="width:70px">관리</th></tr></thead><tbody>';
+  if(!DATA.accounts.length)h+='<tr><td colspan="4" class="empty">등록된 계정 없음 (모든 구글 계정 접근 가능!)</td></tr>';
+  DATA.accounts.forEach(function(a){
+    h+='<tr><td>'+esc(a.email)+'</td><td style="font-size:11px;color:#94a3c0">'+esc(a.added_at||'')+'</td><td style="font-size:11px;color:#94a3c0">'+esc(a.added_by||'')+'</td>';
+    h+='<td><button class="btn btn-danger btn-sm" data-delacc="'+a._id+'">삭제</button></td></tr>';
+  });
+  h+='</tbody></table></div>';
+  h+='<div style="margin-top:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 16px;font-size:13px;color:#92400e;line-height:1.8">⚠️ 계정 목록이 비어있으면 모든 구글 계정이 접근 가능합니다. 최소 1개 이상 유지하세요!</div>';
+  m.innerHTML=h;
+  var btn=m.querySelector('#add-acc-btn');
+  if(btn)btn.addEventListener('click',function(){addAcc();});
+  m.querySelectorAll('[data-delacc]').forEach(function(el){el.addEventListener('click',function(){delAcc(this.dataset.delacc);});});
+}
+async function addAcc(){
+  var em=prompt('추가할 구글 이메일:');if(!em||!em.includes('@'))return;
+  var ref=await db.collection('admin_accounts').add({email:em.trim().toLowerCase(),added_at:new Date().toISOString().split('T')[0],added_by:CU.email});
+  DATA.accounts.push({_id:ref.id,email:em.trim().toLowerCase(),added_at:new Date().toISOString().split('T')[0],added_by:CU.email});
+  renderAccounts(document.getElementById('main'));
+}
+async function delAcc(id){
+  if(!confirm('삭제하시겠습니까?'))return;
+  await db.collection('admin_accounts').doc(id).delete();
+  DATA.accounts=DATA.accounts.filter(function(a){return a._id!==id;});
+  renderAccounts(document.getElementById('main'));
+}
+
+/* ── 편집 모달 ── */
+var QA_SCH=[
+  {k:'s',l:'소스',t:'sel',opts:['트리플러스','오큐파이']},
+  {k:'c',l:'카테고리',t:'sel',opts:['','정산 문의','서비스 이용문의','버그 및 오류 신고','기타']},
+  {k:'q',l:'질문',tall:true},{k:'a',l:'답변',tall:true},
+  {k:'r',l:'비고 (선택)',req:false},
+  {k:'img0',l:'이미지 1 (선택)',t:'img',req:false},
+  {k:'img1',l:'이미지 2 (선택)',t:'img',req:false},
+  {k:'img2',l:'이미지 3 (선택)',t:'img',req:false},
+  {k:'img3',l:'이미지 4 (선택)',t:'img',req:false},
+  {k:'img4',l:'이미지 5 (선택)',t:'img',req:false},
+  {k:'xs',l:'AI검색 제외 (0=포함/1=제외)',t:'sel',opts:['0','1']}
+];
+var MAN_SCH=[
+  {k:'s',l:'소스',t:'sel',opts:['출장정책','운영정책','남양연구소','남양연구소-시내교통비','해외출장을위한이동','증빙규정','숙박비규정','예외거리허용구간','기타교통수단구간']},
+  {k:'c',l:'카테고리',ph:'예: 숙박, 열차, 항공'},{k:'it',l:'항목명',ph:'예: 교통비·유류비 지급 기준'},
+  {k:'q',l:'질문/제목',tall:true},{k:'a',l:'답변/내용',tall:true},
+  {k:'r',l:'비고 (선택)',req:false},
+  {k:'img0',l:'이미지 1 (선택)',t:'img',req:false},
+  {k:'img1',l:'이미지 2 (선택)',t:'img',req:false},
+  {k:'img2',l:'이미지 3 (선택)',t:'img',req:false},
+  {k:'img3',l:'이미지 4 (선택)',t:'img',req:false},
+  {k:'img4',l:'이미지 5 (선택)',t:'img',req:false},
+  {k:'xs',l:'AI검색 제외 (0=포함/1=제외)',t:'sel',opts:['0','1']}
+];
+var TBL_SCH={'증빙규정':[{k:'type',l:'증빙유형'},{k:'cat',l:'분류'},{k:'case',l:'케이스'},{k:'content',l:'내용',tall:true},{k:'remark',l:'비고',req:false}],'숙박비규정':[{k:'purpose',l:'출장목적'},{k:'gubun',l:'구분'},{k:'usergrp',l:'사용자그룹'},{k:'dest',l:'행선지'},{k:'pay_type',l:'지급유형'},{k:'amount',l:'금액'},{k:'option',l:'옵션'},{k:'remark',l:'비고',req:false}],'예외거리허용구간':[{k:'from',l:'출발지'},{k:'to',l:'도착지'},{k:'type',l:'구간유형',ph:'왕복/편도'},{k:'status',l:'사용여부',ph:'사용/미사용'}],'기타교통수단구간':[{k:'from',l:'출발지'},{k:'to',l:'도착지'},{k:'amount',l:'정액요금',ph:'예: 4,600원'}]};
+function getSch(){return EDIT_COL==='qa'?QA_SCH:EDIT_COL==='manual'?MAN_SCH:(TBL_SCH[EDIT_TBL]||[]);}
+function getVals(sch){var d={};sch.forEach(function(f){var e=document.getElementById('f-'+f.k);if(e)d[f.k]=e.value.trim();});return d;}
+function mkFields(sch,data){
+  return sch.map(function(f){
+    var v=data?(data[f.k]!==undefined?data[f.k]:''):'';
+    var req=f.req!==false;
+    var h='<div class="field"><label>'+f.l+(req?' <span class="req">*</span>':'')+'</label>';
+    if(f.t==='sel'){h+='<select id="f-'+f.k+'">'+(f.opts||[]).map(function(o){return '<option value="'+o+'"'+(String(v)===String(o)?' selected':'')+'>'+(o||'-')+'</option>';}).join('')+'</select>';}
+    else if(f.tall){h+='<textarea id="f-'+f.k+'" class="tall" placeholder="'+(f.ph||'')+'">'+esc(String(v))+'</textarea>';}
+    else if(f.t==='img'){
+      var hasImg=v&&(v.startsWith('http')||v.startsWith('data:'));
+      h+='<div id="img-wrap-'+f.k+'">';
+      /* 업로드 존 — 항상 렌더링, 이미지 있으면 숨김 */
+      h+='<div class="img-upload-wrap" id="zone-'+f.k+'" data-zonekey="'+f.k+'"'+(hasImg?' style="display:none"':'')+' >';
+      h+='<input type="file" id="fi-'+f.k+'" data-filekey="'+f.k+'" accept="image/*">';
+      h+='<div class="img-upload-icon">🖼️</div>';
+      h+='<div class="img-upload-text">클릭 또는 드래그<br><strong>JPG · PNG · GIF · WebP</strong> (최대 5MB)</div>';
+      h+='</div>';
+      /* 미리보기 래퍼 — 처리 오버레이 포함 */
+      h+='<div class="img-preview-wrap" id="prev-'+f.k+'"'+(hasImg?'':' style="display:none"')+'>';
+      h+='<img src="'+(hasImg?esc(v):'')+'" id="img-el-'+f.k+'" alt="미리보기">';
+      h+='<button class="img-remove-btn" data-rmkey="'+f.k+'">✕</button>';
+      h+='<div class="img-processing-overlay" id="overlay-'+f.k+'">';
+      h+='<div class="img-spin"></div>';
+      h+='<div class="img-proc-text" id="proc-text-'+f.k+'">처리 중...</div>';
+      h+='</div>';
+      h+='<div class="img-ok-badge" id="ok-badge-'+f.k+'">✅ 저장 완료</div>';
+      h+='</div>';
+      /* URL 표시 — 이미지 있으면 표시 */
+      h+='<div class="img-url-box" id="url-'+f.k+'"'+(hasImg?' style="display:block"':'')+'>'+(hasImg?'✅ 이미지 등록됨':'')+'</div>';
+      /* hidden input */
+      h+='<input type="hidden" id="f-'+f.k+'" value="'+esc(hasImg?v:'')+'">';
+      h+='</div>';
+    }
+    else{h+='<input id="f-'+f.k+'" type="text" value="'+esc(String(v))+'" placeholder="'+(f.ph||'')+'">';}
+    return h+'</div>';
+  }).join('');
+}
+function openAdd(col,src){
+  EDIT_ID=null;EDIT_COL=col;EDIT_TBL=src;
+  var def=col==='qa'?{s:src,xs:'0'}:col==='manual'?{s:src,xs:'0'}:{};
+  document.getElementById('modal-title').textContent='➕ 항목 추가';
+  document.getElementById('modal-body').innerHTML=mkFields(getSch(),def);
+  document.getElementById('del-btn').style.display='none';
+  document.getElementById('modal-msg').textContent='';
+  document.getElementById('modal').classList.add('open');
+}
+function openEdit(col,id,tbl){
+  EDIT_ID=id;EDIT_COL=col;EDIT_TBL=tbl||null;
+  var data=col==='qa'?DATA.qa.find(function(r){return r._id===id;}):col==='manual'?DATA.manual.find(function(r){return r._id===id;}):(DATA.tables[tbl]||[]).find(function(r){return r._id===id;});
+  // 기존 'img' 단일 필드 → img0으로 마이그레이션 (하위 호환)
+  if(data && data.img && !data.img0) { data = Object.assign({}, data, {img0: data.img}); }
+  document.getElementById('modal-title').textContent='✏️ 항목 수정';
+  document.getElementById('modal-body').innerHTML=mkFields(getSch(),data);
+  document.getElementById('del-btn').style.display='inline-block';
+  document.getElementById('modal-msg').textContent='';
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+// 업로드 진행 중 여부 추적
+var IMG_UPLOADING = false;
+
+async function doSave(){
+  // 이미지 업로드 중이면 대기 안내
+  if(IMG_UPLOADING){
+    var msg=document.getElementById('modal-msg');
+    msg.textContent='⏳ 이미지 업로드 중입니다. 잠시 후 다시 저장해주세요.';
+    msg.className='modal-msg err';
+    return;
+  }
+  var msg=document.getElementById('modal-msg');msg.textContent='저장 중...';msg.className='modal-msg';
+  try{
+    var sch=getSch(),data=getVals(sch);
+    if(EDIT_COL==='qa'||EDIT_COL==='manual')data.xs=parseInt(data.xs)||0;
+    if(EDIT_COL==='tables')data.tableName=EDIT_TBL;
+    // img 필드들 빈 문자열이면 키 제거 (Firestore 빈 값 저장 방지)
+    ['img','img0','img1','img2','img3','img4'].forEach(function(k){
+      if(k in data && data[k]==='') delete data[k];
+    });
+    var sid;
+    if(EDIT_ID){await db.collection(EDIT_COL).doc(EDIT_ID).update(data);sid=EDIT_ID;}
+    else{var nid=EDIT_COL+'_'+Date.now();data.id=nid;await db.collection(EDIT_COL).doc(nid).set(data);sid=nid;}
+    LAST_NEW_ID=sid;CUR=1;msg.textContent='✅ 저장 완료! (검색 반영까지 최대 6시간 소요)';
+    try{ localStorage.setItem('triplus_kb_ver', String(Date.now() + 6 * 60 * 60 * 1000)); }catch(e){}
+    // Firestore 재읽기 없이 메모리만 패치
+    patchSave(EDIT_COL, sid, data, EDIT_TBL);
+    setTimeout(function(){closeModal();render();},500);
+  }catch(e){msg.textContent='❌ '+e.message;msg.className='modal-msg err';}
+}
+async function doDelete(){
+  if(!EDIT_ID||!confirm('삭제하시겠습니까? 복구 불가합니다.'))return;
+  await db.collection(EDIT_COL).doc(EDIT_ID).delete();
+  LAST_NEW_ID=null;closeModal();
+  try{ localStorage.setItem('triplus_kb_ver', String(Date.now() + 6 * 60 * 60 * 1000)); }catch(e){}
+  // Firestore 재읽기 없이 메모리만 패치
+  patchDelete(EDIT_COL, EDIT_ID, EDIT_TBL);
+  render();
+}
+
+/* ── 이미지 업로드 ── */
+// 이미지 Canvas 압축 함수
+function compressImage(file, maxW, maxH, quality, cb){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var imgEl=new Image();
+    imgEl.onload=function(){
+      var w=imgEl.width, h=imgEl.height;
+      // 비율 유지 축소
+      if(w>maxW||h>maxH){
+        var ratio=Math.min(maxW/w, maxH/h);
+        w=Math.round(w*ratio); h=Math.round(h*ratio);
+      }
+      var canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      var ctx=canvas.getContext('2d');
+      ctx.drawImage(imgEl,0,0,w,h);
+      cb(canvas.toDataURL('image/jpeg', quality));
+    };
+    imgEl.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleImgFile(key, file){
+  if(!file) return;
+  if(file.size > 10*1024*1024){alert('파일이 10MB를 초과합니다.'); return;}
+
+  var zone=document.getElementById('zone-'+key);
+  var prev=document.getElementById('prev-'+key);
+  var imgEl=document.getElementById('img-el-'+key);
+  var overlay=document.getElementById('overlay-'+key);
+  var procText=document.getElementById('proc-text-'+key);
+  var okBadge=document.getElementById('ok-badge-'+key);
+  var urlBox=document.getElementById('url-'+key);
+  var hidden=document.getElementById('f-'+key);
+  var saveBtn=document.getElementById('modal-save');
+
+  // 미리보기 먼저 표시 (원본 blob)
+  if(zone) zone.style.display='none';
+  if(prev) prev.style.display='inline-block';
+  if(overlay) overlay.classList.add('show');
+  if(procText) procText.textContent='이미지 압축 중...';
+  if(okBadge) okBadge.classList.remove('show');
+
+  // 저장 버튼 비활성화
+  IMG_UPLOADING=true;
+  if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='⏳ 처리 중...';}
+
+  // Canvas로 압축 (최대 1200×900, JPEG 85%)
+  compressImage(file, 1200, 900, 0.85, function(b64){
+    // 미리보기에 압축된 이미지 표시
+    if(imgEl) imgEl.src=b64;
+
+    // hidden input에 base64 저장 (Firestore 직접 저장)
+    if(hidden) hidden.value=b64;
+
+    // 완료 UI 처리
+    if(overlay) overlay.classList.remove('show');
+    if(okBadge) okBadge.classList.add('show');
+    if(urlBox){urlBox.style.display='block';urlBox.textContent='✅ 이미지 등록됨 (저장 시 반영)';}
+
+    // 저장 버튼 즉시 복구 (네트워크 없이 로컬 처리 완료)
+    IMG_UPLOADING=false;
+    if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='💾 저장';}
+  });
+}
+window.handleImgFile=handleImgFile;
+
+function removeImg(key){
+  var hidden=document.getElementById('f-'+key);
+  if(hidden) hidden.value='';
+  var prev=document.getElementById('prev-'+key);
+  if(prev){
+    prev.style.display='none';
+    var img=prev.querySelector('img');
+    if(img) img.src='';
+  }
+  var urlBox=document.getElementById('url-'+key);
+  if(urlBox){urlBox.style.display='none';urlBox.textContent='';}
+  var okBadge=document.getElementById('ok-badge-'+key);
+  if(okBadge) okBadge.classList.remove('show');
+  var overlay=document.getElementById('overlay-'+key);
+  if(overlay) overlay.classList.remove('show');
+  // 업로드 존 다시 표시
+  var zone=document.getElementById('zone-'+key);
+  if(zone) zone.style.display='block';
+  // 파일 input 초기화
+  var fi=document.getElementById('fi-'+key);
+  if(fi) fi.value='';
+}
+window.removeImg=removeImg;
+
+/* ── 엑셀 일괄 등록 ── */
+function openXlModal(src){
+  // src 형식: "qa|트리플러스" 또는 "manual|출장정책" 또는 "tables|증빙규정"
+  var parts=(src||'qa|트리플러스').split('|');
+  XL_MODE=parts[0]||'qa';
+  XL_SRC=parts[1]||'트리플러스';
+  XL_TNAME=(XL_MODE==='tables')?XL_SRC:'';
+  XL_ROWS=[];
+  // 모달 타이틀 변경
+  var titles={'qa':'Q&A 일괄 등록 (엑셀)','manual':'매뉴얼 일괄 등록 (엑셀)','tables':XL_SRC+' 일괄 등록 (엑셀)'};
+  document.querySelector('#xl-modal .modal-title').textContent='📊 '+(titles[XL_MODE]||'일괄 등록');
+  document.getElementById('xl-stat').style.display='none';
+  document.getElementById('xl-preview').style.display='none';
+  document.getElementById('xl-upload-btn').style.display='none';
+  document.getElementById('xl-prog').style.display='none';
+  document.getElementById('xl-prog-bar').style.width='0%';
+  document.getElementById('xl-msg').textContent='';
+  document.getElementById('xl-file').value='';
+  document.getElementById('xl-modal').classList.add('open');
+}
+function closeXlModal(){document.getElementById('xl-modal').classList.remove('open');}
+function downloadSample(){
+  var wb=XLSX.utils.book_new();
+  var ws,data;
+  if(XL_MODE==='manual'){
+    data=[
+      ['소스(s)','카테고리(c)','항목명(it)','질문/제목(q)','답변/내용(a)','비고(r)','AI검색제외(xs)'],
+      ['출장정책','숙박','국내 숙박비 기준','국내 출장 시 숙박비 한도는?','1박 기준 서울 120,000원, 지방 100,000원입니다.','출장규정 참고','0'],
+      ['남양연구소','교통비','시내교통비 신청','시내교통비는 어떻게 신청하나요?','트리플러스 → 시내교통비 메뉴에서 신청 가능합니다.','','0'],
+      ['해외출장을위한이동','항공','항공권 예약','해외출장 항공권 예약 방법','트리플러스 앱에서 해외출장 → 항공 예약으로 진행하세요.','','0'],
+    ];
+    ws=XLSX.utils.aoa_to_sheet(data);
+    ws['!cols']=[{wch:18},{wch:14},{wch:20},{wch:40},{wch:60},{wch:20},{wch:10}];
+    XLSX.utils.book_append_sheet(wb,ws,'매뉴얼 등록양식');
+    XLSX.writeFile(wb,'매뉴얼_일괄등록_양식.xlsx');
+  } else if(XL_MODE==='tables'){
+    var tname=XL_TNAME;
+    var sch=TBL_SCH[tname]||[];
+    var heads=sch.map(function(f){return f.l+'('+f.k+')';});
+    var sampleRow=sch.map(function(f){
+      var samples={'type':'숙박비','cat':'국내출장','case':'일반','content':'내용예시','remark':'비고예시','purpose':'국내출장','gubun':'일반','usergrp':'일반직원','dest':'서울','pay_type':'현금','amount':'100000','option':'','from':'서울','to':'부산','status':'사용'};
+      return samples[f.k]||'';
+    });
+    data=[heads,sampleRow];
+    ws=XLSX.utils.aoa_to_sheet(data);
+    ws['!cols']=heads.map(function(){return {wch:18};});
+    XLSX.utils.book_append_sheet(wb,ws,tname+'_등록양식');
+    XLSX.writeFile(wb,tname+'_일괄등록_양식.xlsx');
+  } else {
+    // QA (기존)
+    data=[
+      ['소스(s)','카테고리(c)','질문(q)','답변(a)','비고(r)','AI검색제외(xs 0또는1)'],
+      ['트리플러스','정산 문의','출장정산서는 어떻게 제출하나요?','트리플러스 시스템에서 출장 → 정산 메뉴를 통해 제출합니다.','','0'],
+      ['오큐파이','서비스 이용문의','출장 예약 취소는 어떻게 하나요?','예약 상세 화면에서 취소 버튼을 클릭하시면 됩니다.','','0'],
+      ['트리플러스','버그 및 오류 신고','로그인이 안 됩니다.','브라우저 캐시 삭제 후 재시도해 주세요.','IT 헬프데스크 문의 가능','0'],
+    ];
+    ws=XLSX.utils.aoa_to_sheet(data);
+    ws['!cols']=[{wch:14},{wch:16},{wch:40},{wch:60},{wch:20},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,ws,'Q&A 등록양식');
+    XLSX.writeFile(wb,'QA_일괄등록_양식.xlsx');
+  }
+}
+function handleXlFile(file){
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(raw.length<2){showXlMsg('데이터가 없습니다.',true);return;}
+      var rows=[];
+      if(XL_MODE==='manual'){
+        // 소스,카테고리,항목명,질문,답변,비고,AI제외
+        rows=raw.slice(1).filter(function(r){return r[3]||r[4];}).map(function(r){
+          return {s:String(r[0]||XL_SRC).trim()||XL_SRC,c:String(r[1]||'').trim(),it:String(r[2]||'').trim(),q:String(r[3]||'').trim(),a:String(r[4]||'').trim(),r:String(r[5]||'').trim(),xs:parseInt(r[6])||0};
+        }).filter(function(r){return r.q||r.a;});
+      } else if(XL_MODE==='tables'){
+        var sch=TBL_SCH[XL_TNAME]||[];
+        rows=raw.slice(1).filter(function(r){return r.some(function(v){return v;});}).map(function(r){
+          var obj={tableName:XL_TNAME};
+          sch.forEach(function(f,i){obj[f.k]=String(r[i]||'').trim();});
+          return obj;
+        });
+      } else {
+        // QA: 소스,카테고리,질문,답변,비고,AI제외
+        rows=raw.slice(1).filter(function(r){return r[2]||r[3];}).map(function(r){
+          return {s:String(r[0]||XL_SRC).trim()||XL_SRC,c:String(r[1]||'').trim(),q:String(r[2]||'').trim(),a:String(r[3]||'').trim(),r:String(r[4]||'').trim(),xs:parseInt(r[5])||0};
+        }).filter(function(r){return r.q&&r.a;});
+      }
+      XL_ROWS=rows;
+      var se=document.getElementById('xl-stat');se.innerHTML='총 <strong>'+rows.length+'건</strong> 인식됨';se.style.display='block';
+      // 미리보기 테이블
+      var previewKeys=XL_MODE==='manual'?['s','c','it','q','a']:XL_MODE==='tables'?(TBL_C[XL_TNAME]||[]):['s','c','q','a'];
+      var prev='<table><tr>'+previewKeys.map(function(k){return '<th>'+k+'</th>';}).join('')+'</tr>';
+      rows.slice(0,10).forEach(function(r){prev+='<tr>'+previewKeys.map(function(k){return '<td>'+esc(String(r[k]||'').slice(0,40))+'</td>';}).join('')+'</tr>';});
+      if(rows.length>10)prev+='<tr><td colspan="'+previewKeys.length+'" style="color:#94a3c0;text-align:center">... 외 '+(rows.length-10)+'건</td></tr>';
+      prev+='</table>';
+      var pe=document.getElementById('xl-preview');pe.innerHTML=prev;pe.style.display='block';
+      document.getElementById('xl-upload-btn').style.display='inline-block';
+    }catch(err){showXlMsg('파싱 오류: '+err.message,true);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+async function doXlUpload(){
+  if(!XL_ROWS.length){showXlMsg('업로드할 데이터가 없습니다.',true);return;}
+  var btn=document.getElementById('xl-upload-btn');btn.disabled=true;btn.textContent='업로드 중...';
+  document.getElementById('xl-prog').style.display='block';
+  var bar=document.getElementById('xl-prog-bar');
+  var total=XL_ROWS.length,done=0,lastId='';
+  try{
+    for(var i=0;i<XL_ROWS.length;i+=400){
+      var chunk=XL_ROWS.slice(i,i+400);
+      var batch=db.batch();
+      var colName=XL_MODE==='manual'?'manual':XL_MODE==='tables'?'tables':'qa';
+      var prefix=XL_MODE==='manual'?'man_xl_':XL_MODE==='tables'?'tbl_xl_':'qa_xl_';
+      chunk.forEach(function(row){var nid=prefix+Date.now()+'_'+Math.random().toString(36).slice(2,7);row.id=nid;lastId=nid;batch.set(db.collection(colName).doc(nid),row);});
+      await batch.commit();
+      done+=chunk.length;bar.style.width=Math.round(done/total*100)+'%';
+    }
+    LAST_NEW_ID=lastId;CUR=1;
+    showXlMsg('✅ '+total+'건 등록 완료!');
+    btn.textContent='✅ 완료';
+    // 메모리 패치: 엑셀 업로드된 행 추가
+    patchXlUpload(XL_MODE, XL_ROWS, XL_TNAME);
+    setTimeout(function(){closeXlModal();render();},1000);
+  }catch(e){showXlMsg('❌ 오류: '+e.message,true);btn.disabled=false;btn.textContent='🚀 일괄 등록하기';}
+}
+function showXlMsg(msg,isErr){var el=document.getElementById('xl-msg');el.textContent=msg;el.className='modal-msg'+(isErr?' err':'');}
+
+/* ── 도움말 ── */
+function renderHelpSearch(m){
+  m.innerHTML=''
+    +'<div class="doc">'
+    +'<h2>📘 출장관리 AI 챗봇 v2 사용방법</h2>'
+    +'<p>현대자동차 트리플러스 출장 관련 Q&amp;A, 정책, 규정을 <strong>대화형 챗봇</strong>으로 질문하는 도구입니다.<br>'
+    +'누적된 매뉴얼·Q&amp;A 데이터를 종합해 AI가 최적의 답변을 생성합니다.</p>'
+    +'<div class="gbox">🌐 접속 주소<br><code>https://bizplaytravel1.github.io/triplus-kb/출장관리_AI검색_매뉴얼_v2.html</code></div>'
+    +'<h2>💬 사용법</h2>'
+    +'<div class="step">'
+    +'<div class="sr"><span class="sn">1</span><span>하단 입력창에 출장 관련 질문을 자연스럽게 입력</span></div>'
+    +'<div class="sr"><span class="sn">2</span><span><strong>Enter</strong> 전송 / <strong>Shift+Enter</strong> 줄바꿈</span></div>'
+    +'<div class="sr"><span class="sn">3</span><span>AI 답변 확인 → 하단 <strong>참고 데이터 카드</strong> 클릭으로 원본 Q&amp;A 상세 확인</span></div>'
+    +'<div class="sr"><span class="sn">4</span><span>이전 대화 맥락이 유지되므로 <strong>연속 질문</strong> 가능 (예: "그럼 식비는요?")</span></div>'
+    +'</div>'
+    +'<h2>⚙️ 데이터 필터</h2>'
+    +'<p>입력창 하단의 필터 버튼으로 검색 범위를 좁힐 수 있습니다.</p>'
+    +'<table><tr><th>필터</th><th>검색 대상</th></tr>'
+    +'<tr><td>전체</td><td>모든 데이터 (기본값)</td></tr>'
+    +'<tr><td>출장정책</td><td>출장 정책 매뉴얼</td></tr>'
+    +'<tr><td>운영정책</td><td>운영 정책 매뉴얼</td></tr>'
+    +'<tr><td>남양연구소</td><td>남양연구소 전용 데이터</td></tr>'
+    +'<tr><td>트리플러스</td><td>트리플러스 Q&amp;A</td></tr>'
+    +'<tr><td>오큐파이</td><td>오큐파이 Q&amp;A</td></tr>'
+    +'</table>'
+    +'<h2>📑 탭별 기능</h2>'
+    +'<table><tr><th>탭</th><th>내용</th></tr>'
+    +'<tr><td>🤖 AI 챗봇</td><td>대화형 질문 + AI 종합 답변 (v2 신규)</td></tr>'
+    +'<tr><td>📋 증빙규정</td><td>증빙 처리 규정 테이블</td></tr>'
+    +'<tr><td>🏠 숙박비규정</td><td>숙박비 지급 기준 테이블</td></tr>'
+    +'<tr><td>📍 예외거리구간</td><td>50km 미만 허용 구간</td></tr>'
+    +'<tr><td>🚌 기타교통수단</td><td>정액요금 구간</td></tr>'
+    +'<tr><td>✈️ 해외출장</td><td>해외 출장 규정</td></tr>'
+    +'<tr><td>📘 국내출장매뉴얼</td><td>국내 출장 전체 매뉴얼</td></tr>'
+    +'<tr><td>🚗 남양시내교통비</td><td>남양연구소 시내교통비 전용</td></tr>'
+    +'</table>'
+    +'<h2>💡 잘 쓰는 팁</h2>'
+    +'<div class="ibox">'
+    +'✅ <strong>구체적으로 질문할수록 정확도가 높아집니다.</strong><br>'
+    +'"교통비 규정이 뭔가요?" 보다<br>"남양연구소에서 서울 출장 시 자기차량 유류비 지급 기준이 어떻게 되나요?"가 더 정확합니다.<br><br>'
+    +'✅ <strong>참고 데이터 카드를 꼭 확인하세요.</strong><br>'
+    +'AI 답변 아래 참고한 원본 데이터를 클릭해서 세부 내용과 첨부 이미지를 확인할 수 있습니다.'
+    +'</div>'
+    +'</div>';
+}
+
+function renderHelpAdmin(m){
+  m.innerHTML=''
+    +'<div class="doc">'
+    +'<h2>🔑 출장관리 AI검색 관리자 사용방법</h2>'
+    +'<div class="wbox">⚠️ 반드시 <strong>GitHub Pages 주소</strong>에서 열어야 합니다.</div>'
+    +'<div class="gbox">🌐 관리자 주소<br><code>https://bizplaytravel1.github.io/triplus-kb/출장관리_AI검색_관리자.html</code></div>'
+    +'<div class="gbox">🌐 챗봇(v2) 주소<br><code>https://bizplaytravel1.github.io/triplus-kb/출장관리_AI검색_매뉴얼_v2.html</code></div>'
+    +'<h2>✏️ 수정 / ➕ 추가 / 🗑️ 삭제</h2>'
+    +'<div class="step">'
+    +'<div class="sr"><span class="sn">1</span><span>사이드바에서 카테고리 클릭</span></div>'
+    +'<div class="sr"><span class="sn">2</span><span>수정 버튼 → 내용 변경 → 💾 저장<br><small style="color:#94a3c0">(추가/수정 항목은 맨 위 초록 배경으로 표시됩니다)</small></span></div>'
+    +'<div class="sr"><span class="sn">3</span><span>삭제: 수정 모달 하단 🗑️ 삭제 버튼</span></div>'
+    +'</div>'
+    +'<h2>📊 엑셀 일괄 등록</h2>'
+    +'<div class="step">'
+    +'<div class="sr"><span class="sn">1</span><span>Q&amp;A 탭 → 📊 엑셀 일괄 등록 클릭</span></div>'
+    +'<div class="sr"><span class="sn">2</span><span>📥 예시 엑셀 다운로드 → 양식에 입력 → 저장</span></div>'
+    +'<div class="sr"><span class="sn">3</span><span>파일 업로드 → 미리보기 확인 → 🚀 일괄 등록하기</span></div>'
+    +'</div>'
+    +'<h2>⚡ 즉시 반영 vs 자동 반영</h2>'
+    +'<table><tr><th>방식</th><th>설명</th></tr>'
+    +'<tr><td>자동 반영</td><td>저장 후 최대 6시간 뒤 챗봇에 반영 (캐시 만료 시)</td></tr>'
+    +'<tr><td>⚡ 즉시 반영</td><td>헤더 버튼 클릭 → 다음 방문자부터 즉시 최신 데이터 표시</td></tr>'
+    +'</table>'
+    +'<h2>🔍 AI 챗봇 제외 (xs)</h2>'
+    +'<table><tr><th>값</th><th>의미</th></tr>'
+    +'<tr><td><code>0</code></td><td>🟢 챗봇 검색 포함 (기본값)</td></tr>'
+    +'<tr><td><code>1</code></td><td>🔴 챗봇 검색 제외 (탭에서는 계속 보임)</td></tr>'
+    +'</table>'
+    +'<h2>🖼️ 이미지 첨부</h2>'
+    +'<div class="ibox">'
+    +'수정 모달에서 <strong>이미지 1~3</strong> 필드에 이미지를 업로드하면<br>'
+    +'챗봇 답변의 참고 데이터 카드에서 클릭해서 확인할 수 있습니다.<br>'
+    +'이미지는 자동 압축(최대 800px, JPEG 70%) 후 Firebase에 저장됩니다.'
+    +'</div>'
+    +'</div>';
+}
+
+
+
+/* ── 대기 중 변경사항 상태 표시 ── */
+function checkPendingPublish(){
+  try{
+    var v=localStorage.getItem('triplus_kb_ver');
+    var statusEl=document.getElementById('publish-status');
+    var btnEl=document.getElementById('instant-publish-btn');
+    if(!statusEl||!btnEl)return;
+    if(v && parseInt(v,10) > Date.now()){
+      // 아직 발효 전 — 대기 중 표시
+      var remain=Math.ceil((parseInt(v,10)-Date.now())/3600000);
+      statusEl.textContent='⏳ 대기 중 (약 '+remain+'시간 후 반영)';
+      statusEl.style.display='inline-block';
+      btnEl.style.display='inline-block';
+    } else {
+      statusEl.style.display='none';
+      btnEl.style.display='none';
+    }
+  }catch(e){}
+}
+function instantPublish(){
+  if(!confirm('지금 즉시 검색에 반영할까요?\n(검색 페이지 사용자들이 다음 방문 시 Firebase를 재로드합니다)'))return;
+  try{
+    localStorage.setItem('triplus_kb_ver', String(Date.now()-1));
+    checkPendingPublish();
+    alert('✅ 즉시 반영 완료! 검색 페이지 사용자들이 다음 접속 시 최신 데이터가 표시됩니다.');
+  }catch(e){alert('오류: '+e.message);}
+}
+/* ── DOM 이벤트 연결 (onclick 대신 addEventListener 사용) ── */
+document.getElementById('login-btn').addEventListener('click', signIn);
+document.getElementById('instant-publish-btn').addEventListener('click', instantPublish);
+document.getElementById('logout-btn').addEventListener('click', function(){ auth.signOut().then(function(){location.reload();}); });
+document.getElementById('modal').addEventListener('click', function(e){ if(e.target===this)closeModal(); });
+document.getElementById('modal-cancel').addEventListener('click', closeModal);
+document.getElementById('modal-save').addEventListener('click', doSave);
+document.getElementById('del-btn').addEventListener('click', doDelete);
+document.getElementById('xl-modal').addEventListener('click', function(e){ if(e.target===this)closeXlModal(); });
+document.getElementById('xl-cancel').addEventListener('click', closeXlModal);
+document.getElementById('xl-upload-btn').addEventListener('click', doXlUpload);
+document.getElementById('dl-sample-btn').addEventListener('click', downloadSample);
+document.getElementById('xl-zone').addEventListener('click', function(){ document.getElementById('xl-file').click(); });
+document.getElementById('xl-zone').addEventListener('dragover', function(e){ e.preventDefault(); this.classList.add('drag'); });
+document.getElementById('xl-zone').addEventListener('dragleave', function(){ this.classList.remove('drag'); });
+document.getElementById('xl-zone').addEventListener('drop', function(e){ e.preventDefault(); this.classList.remove('drag'); handleXlFile(e.dataTransfer.files[0]); });
+document.getElementById('xl-file').addEventListener('change', function(){ handleXlFile(this.files[0]); });
+document.querySelectorAll('.sb-item[data-tab]').forEach(function(el){ el.addEventListener('click', function(){ go(this.dataset.tab); }); });
+
+// 라이트박스
+document.getElementById('lightbox').addEventListener('click', function(e){ if(e.target===this||e.target===document.getElementById('lb-close')){this.classList.remove('open');} });
+document.getElementById('lb-close').addEventListener('click', function(){ document.getElementById('lightbox').classList.remove('open'); });
+// 라이트박스 열기 (전역 - 동적 렌더 후 클릭)
+document.addEventListener('click', function(e){
+  if(e.target.classList.contains('tbl-thumb')){
+    var lb=document.getElementById('lightbox');
+    document.getElementById('lb-img').src=e.target.src;
+    lb.classList.add('open');
+  }
+  // 이미지 제거 버튼
+  if(e.target.dataset.rmkey){removeImg(e.target.dataset.rmkey);}
+  // 이미지 업로드 존 클릭
+  if(e.target.closest('[data-zonekey]')){
+    var key=e.target.closest('[data-zonekey]').dataset.zonekey;
+    var fi=document.getElementById('fi-'+key);
+    if(fi&&e.target!==fi)fi.click();
+  }
+});
+// 파일 input change (동적)
+document.addEventListener('change', function(e){
+  if(e.target.dataset.filekey){handleImgFile(e.target.dataset.filekey, e.target.files[0]);}
+});
+// 이미지 존 드래그앤드롭 (동적)
+document.addEventListener('dragover', function(e){
+  if(e.target.closest('[data-zonekey]'))e.preventDefault();
+});
+document.addEventListener('dragleave', function(e){
+  var z=e.target.closest('[data-zonekey]');
+  if(z)z.classList.remove('dragover');
+});
+document.addEventListener('drop', function(e){
+  var z=e.target.closest('[data-zonekey]');
+  if(z){e.preventDefault();z.classList.remove('dragover');handleImgFile(z.dataset.zonekey,e.dataTransfer.files[0]);}
+});
+
+})(); // IIFE 끝
+</script>
+</body>
+</html>
