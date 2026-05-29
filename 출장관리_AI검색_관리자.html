@@ -279,6 +279,7 @@ header{background:#1a1f36;padding:0 24px;display:flex;align-items:center;gap:16p
       <div class="sb-section">
         <div class="sb-label">💌 OQUPIE</div>
         <div class="sb-item" id="sb-oqupie" data-tab="oqupie">💌 답변초안 <span class="sb-cnt" id="cn-oqupie">-</span></div>
+        <div class="sb-item sb-indent" id="sb-oqupie-settings" data-tab="oqupie-settings">⚙️ 연동 설정</div>
       </div>
       <div class="sb-section">
         <div class="sb-label">⚙️ 설정 &amp; 도움말</div>
@@ -589,7 +590,8 @@ function render(){
   else if(TAB==='accounts')    renderAccounts(m);
   else if(TAB==='logs')        renderLogs(m);
   else if(TAB==='admin-logs')  renderAdminLogs(m);
-  else if(TAB==='oqupie')      renderOqupie(m);
+  else if(TAB==='oqupie')           renderOqupie(m);
+  else if(TAB==='oqupie-settings')  renderOqupieSettings(m);
   else if(TAB==='help-search') renderHelpSearch(m);
   else if(TAB==='help-admin')  renderHelpAdmin(m);
 }
@@ -2004,6 +2006,113 @@ document.addEventListener('drop', function(e){
   var z=e.target.closest('[data-zonekey]');
   if(z){e.preventDefault();z.classList.remove('dragover');handleImgFile(z.dataset.zonekey,e.dataTransfer.files[0]);}
 });
+
+/* ══════════════════════════════════════════════════════════
+   OQUPIE 연동 설정
+══════════════════════════════════════════════════════════ */
+function renderOqupieSettings(m) {
+  if (!isMaster()) {
+    m.innerHTML = '<div class="empty">🔒 마스터 권한이 필요합니다.</div>';
+    return;
+  }
+  m.innerHTML = '<div class="loading"><div class="spin"></div><br>설정 불러오는 중...</div>';
+
+  db.collection('admin_settings').doc('oqupie').get()
+    .then(function(doc) {
+      var v = doc.exists ? doc.data() : {};
+      var h = '<div class="page-hdr"><div class="page-title">⚙️ OQUPIE 연동 설정</div></div>';
+
+      h += '<div class="doc" style="max-width:620px">';
+      h += '<h2>🔐 OQUPIE 로그인 정보</h2>';
+      h += '<div class="ibox" style="margin-bottom:16px">이 정보는 GitHub Actions가 OQUPIE에 자동 로그인하여 티켓을 크롤링하는데 사용됩니다.</div>';
+
+      h += '<div class="field"><label>OQUPIE 티켓 페이지 URL</label>';
+      h += '<input id="oqs-url" type="text" value="'+esc(v.url||'https://bizplay.oqupie.com/tickets/v5?selected_menu_code=TK11')+'" placeholder="https://bizplay.oqupie.com/..."></div>';
+
+      h += '<div class="field"><label>아이디 (이메일)</label>';
+      h += '<input id="oqs-id" type="text" value="'+esc(v.id||'')+'" placeholder="OQUPIE 로그인 이메일" autocomplete="off"></div>';
+
+      h += '<div class="field"><label>비밀번호</label>';
+      h += '<input id="oqs-pw" type="password" value="'+esc(v.pw||'')+'" placeholder="OQUPIE 비밀번호" autocomplete="new-password"></div>';
+
+      h += '<div class="modal-foot" style="justify-content:flex-start;border:none;padding:0;margin-top:8px">';
+      h += '<button class="btn btn-primary" onclick="saveOqupieSettings()">💾 저장</button>';
+      h += '</div>';
+      h += '<div id="oqs-msg" style="margin-top:10px;font-size:12px;min-height:16px"></div>';
+      h += '</div>';
+
+      // 동기화 현황
+      h += '<div class="doc" style="max-width:620px;margin-top:20px">';
+      h += '<h2>🔄 동기화 현황</h2>';
+
+      if (v.last_sync) {
+        var syncTime = new Date(v.last_sync).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'});
+        h += '<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:12px">';
+        h += '<div><div style="font-size:11px;color:#94a3c0;font-weight:700;margin-bottom:4px">마지막 동기화</div><div style="font-size:14px;font-weight:600">'+esc(syncTime)+'</div></div>';
+        if (v.last_count !== undefined) {
+          h += '<div><div style="font-size:11px;color:#94a3c0;font-weight:700;margin-bottom:4px">동기화 티켓</div><div style="font-size:14px;font-weight:600">'+v.last_count+'건</div></div>';
+        }
+        h += '</div>';
+      } else {
+        h += '<p style="color:#94a3c0;font-size:13px">아직 동기화 기록이 없습니다.</p>';
+      }
+
+      if (v.last_error) {
+        h += '<div class="wbox">⚠️ 마지막 오류: '+esc(v.last_error)+'</div>';
+      }
+
+      h += '<div class="gbox" style="margin-top:12px">';
+      h += '<strong>자동 동기화 방법</strong><br>';
+      h += '① GitHub 저장소 → <strong>Actions</strong> 탭<br>';
+      h += '② <strong>OQUPIE 티켓 동기화</strong> 선택<br>';
+      h += '③ <strong>Run workflow</strong> 클릭<br><br>';
+      h += '<span style="color:#166534;font-size:12px">※ 스케줄 설정 시 매 1시간마다 자동 실행됩니다.</span>';
+      h += '</div>';
+      h += '</div>';
+
+      // GitHub Actions 설정 안내
+      h += '<div class="doc" style="max-width:620px;margin-top:20px">';
+      h += '<h2>🛠️ GitHub Actions 최초 설정</h2>';
+      h += '<div class="step">';
+      h += '<div class="sr"><div class="sn">1</div><div><strong>Firebase 서비스 계정 키 발급</strong><br><small style="color:#94a3c0">Firebase Console → 프로젝트 설정 → 서비스 계정 → 새 비공개 키 생성 → JSON 다운로드</small></div></div>';
+      h += '<div class="sr"><div class="sn">2</div><div><strong>GitHub Secret 등록</strong><br><small style="color:#94a3c0">GitHub 저장소 → Settings → Secrets and variables → Actions → New repository secret<br>이름: <code>FIREBASE_SERVICE_ACCOUNT</code> / 값: JSON 파일 전체 내용 붙여넣기</small></div></div>';
+      h += '<div class="sr"><div class="sn">3</div><div><strong>GitHub에 워크플로우 파일 업로드</strong><br><small style="color:#94a3c0">아래 제공된 2개 파일을 저장소에 업로드</small></div></div>';
+      h += '</div>';
+      h += '</div>';
+
+      m.innerHTML = h;
+    })
+    .catch(function(e) {
+      m.innerHTML = '<div class="empty">오류: '+esc(e.message)+'</div>';
+    });
+}
+
+function saveOqupieSettings() {
+  if (!isMaster()) return;
+  var url = (document.getElementById('oqs-url').value||'').trim();
+  var id  = (document.getElementById('oqs-id').value||'').trim();
+  var pw  = (document.getElementById('oqs-pw').value||'').trim();
+  var msg = document.getElementById('oqs-msg');
+  if (!id || !pw) {
+    msg.textContent = '⚠️ 아이디와 비밀번호를 입력해주세요.';
+    msg.style.color = '#ef4444'; return;
+  }
+  msg.textContent = '저장 중...'; msg.style.color = '#94a3c0';
+  db.collection('admin_settings').doc('oqupie').set({
+    url: url, id: id, pw: pw,
+    updated_at: new Date().toISOString(),
+    updated_by: CU ? CU.email : ''
+  }, { merge: true })
+    .then(function() {
+      msg.textContent = '✅ 저장되었습니다.';
+      msg.style.color = '#059669';
+      logAdminAction('edit_oqupie_settings', { note: 'OQUPIE 로그인 정보 업데이트' });
+    })
+    .catch(function(e) {
+      msg.textContent = '❌ 저장 실패: ' + e.message;
+      msg.style.color = '#ef4444';
+    });
+}
 
 /* ══════════════════════════════════════════════════════════
    OQUPIE 답변초안

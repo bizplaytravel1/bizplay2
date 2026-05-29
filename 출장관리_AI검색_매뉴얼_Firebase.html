@@ -3878,21 +3878,14 @@ init();
     <div class="oq-title">&#128140; OQUPIE 답변초안</div>
     <div class="oq-badge" id="oq-cnt">-건</div>
     <div class="oq-updated" id="oq-upd"></div>
-    <div class="oq-actions">
-      <button class="oq-btn sec" onclick="loadOqupiePage(true)">&#8635; 새로고침</button>
-    </div>
   </div>
 
-  <!-- Groq API Key 설정 (무료 https://console.groq.com/keys) -->
-  <div class="oq-key-bar">
-    <span class="oq-key-label">&#128273; Groq API Key</span>
-    <input class="oq-key-input" id="oq-gem-key" type="password"
-      placeholder="gsk_... 없으면 KB 키워드 매칭만 사용" />
-    <button class="oq-btn" style="padding:7px 14px;font-size:12px" onclick="oqSaveKey()">저장</button>
-    <span class="oq-key-status" id="oq-key-st"></span>
-    <span style="font-size:11px;color:var(--text3)">
-      무료 발급: <a href="https://console.groq.com/keys" target="_blank" style="color:var(--accent)">console.groq.com</a>
-    </span>
+  <!-- 날짜 선택 -->
+  <div class="oq-key-bar" style="gap:10px">
+    <span class="oq-key-label">&#128197; 날짜 선택</span>
+    <input type="date" id="oq-date" class="oq-key-input" style="max-width:160px;cursor:pointer">
+    <button class="oq-btn" style="padding:7px 18px;font-size:13px" onclick="loadOqupiePage(true)">조회</button>
+    <span id="oq-date-info" style="font-size:12px;color:var(--text3)"></span>
   </div>
 
   <div id="oq-status" class="oq-loading">
@@ -3910,35 +3903,34 @@ var _oqTickets = null;
 var _oqBusy    = {};
 
 /* ── Gemini 키 초기화 ───────────────────────────────────────────── */
+/* ── 오늘 날짜 기본값 설정 ─────────────────────────────────────── */
 (function(){
-  var k = localStorage.getItem('oq_groq_key') || '';
-  if (k) {
-    document.getElementById('oq-gem-key').value = k;
-    document.getElementById('oq-key-st').textContent = '✅ 저장됨';
-    document.getElementById('oq-key-st').style.color = '#059669';
-  }
+  var today = new Date();
+  var yyyy = today.getFullYear();
+  var mm   = String(today.getMonth()+1).padStart(2,'0');
+  var dd   = String(today.getDate()).padStart(2,'0');
+  var el   = document.getElementById('oq-date');
+  if (el) el.value = yyyy+'-'+mm+'-'+dd;
 })();
-
-function oqSaveKey() {
-  var k  = document.getElementById('oq-gem-key').value.trim();
-  var st = document.getElementById('oq-key-st');
-  localStorage.setItem('oq_groq_key', k);
-  st.textContent = k ? '✅ 저장됨' : '🗑 삭제됨';
-  st.style.color = k ? '#059669' : '#dc2626';
-  setTimeout(function(){ st.style.color=''; st.textContent = k ? '✅ 저장됨' : ''; }, 2500);
-}
-window.oqSaveKey = oqSaveKey;
 
 /* ── 티켓 데이터 로드 ─────────────────────────────────────────────── */
 function loadOqupiePage(force) {
-  if (_oqLoaded && !force) return;
+  var selectedDate = (document.getElementById('oq-date')||{}).value || '';
   var statusEl = document.getElementById('oq-status');
   var listEl   = document.getElementById('oq-list');
   statusEl.style.display = 'block';
   statusEl.innerHTML = '<div class="spinner" style="margin:0 auto 10px"></div>티켓 데이터 불러오는 중...';
   listEl.style.display = 'none';
+  _oqLoaded = false;
+  _oqBusy   = {};
 
-  db.collection('oqupie_tickets').orderBy('created_at', 'desc').get()
+  // 선택한 날짜 범위로 Firestore 쿼리
+  var startStr = selectedDate ? selectedDate + 'T00:00:00' : '';
+  var endStr   = selectedDate ? selectedDate + 'T23:59:59' : '';
+  var query = db.collection('oqupie_tickets').orderBy('created_at', 'desc');
+  if (startStr) query = query.where('created_at', '>=', startStr).where('created_at', '<=', endStr);
+
+  query.get()
     .then(function(snap) {
       _oqLoaded  = true;
       _oqTickets = snap.docs.map(function(d) {
@@ -3967,30 +3959,26 @@ window.loadOqupiePage = loadOqupiePage;
 
 /* ── 렌더링 ──────────────────────────────────────────────────────── */
 function _oqRender(data) {
-  var statusEl = document.getElementById('oq-status');
-  var listEl   = document.getElementById('oq-list');
-  document.getElementById('oq-cnt').textContent = _oqTickets.length + '건';
-  try {
-    var updEl = document.getElementById('oq-upd');
-    if (updEl) updEl.textContent = '업데이트: ' + new Date().toLocaleString('ko-KR');
-  } catch(e){}
+  var statusEl  = document.getElementById('oq-status');
+  var listEl    = document.getElementById('oq-list');
+  var cntEl     = document.getElementById('oq-cnt');
+  var infoEl    = document.getElementById('oq-date-info');
+  var selDate   = (document.getElementById('oq-date')||{}).value || '';
+
+  if (cntEl)  cntEl.textContent  = _oqTickets.length + '건';
+  if (infoEl) infoEl.textContent = selDate ? selDate + ' 기준' : '';
+
   statusEl.style.display = 'none';
   listEl.style.display   = 'block';
 
   if (_oqTickets.length === 0) {
-    listEl.innerHTML = '<div class="oq-empty">&#128231; 인입된 문의가 없습니다.</div>';
-    return;
-  }
-  if (allItems.length === 0) {
-    listEl.innerHTML = '<div class="oq-loading"><div class="spinner" style="margin:0 auto 10px"></div>KB 데이터 로딩 중... 잠시 후 새로고침 버튼을 눌러주세요.</div>';
-    _oqLoaded = false;
+    listEl.innerHTML = '<div class="oq-empty">&#128231; '+(selDate?selDate+' 날짜에 ':'')+'인입된 문의가 없습니다.</div>';
     return;
   }
 
   var html = '';
   for (var i = 0; i < _oqTickets.length; i++) {
-    var t   = _oqTickets[i];
-    var top = _oqScore(t);
+    var t    = _oqTickets[i];
     var meta = [];
     if (t.from_name)  meta.push(t.from_name);
     if (t.from_email) meta.push(t.from_email);
@@ -4005,50 +3993,18 @@ function _oqRender(data) {
     html += '</div><span class="oq-tarrow">&#9660;</span></div>';
 
     html += '<div class="oq-tbody">';
-    // 원문
+    // 원문 문의 내용
     if (t.body && t.body.trim()) {
       html += '<div class="oq-sec">원문 문의</div>';
       html += '<div class="oq-original">'+esc(t.body.trim())+'</div>';
     }
-    // 답변 초안 영역 (키워드 매칭 기본값, ✨AI 생성 버튼으로 Gemini 교체 가능)
-    html += '<div class="oq-sec">답변 초안</div>';
-    html += '<div id="oq-area-'+i+'">' + _oqBuildDraftHtml(i, top) + '</div>';
+    // 답변 초안 버튼 (클릭 시 생성)
+    html += '<div id="oq-area-'+i+'" style="margin-top:12px">';
+    html += '<button class="oq-gen-btn" id="oq-gbtn-'+i+'" onclick="oqGenGroq('+i+',event)" style="padding:8px 18px;font-size:13px">&#10024; 답변초안 생성</button>';
+    html += '</div>';
     html += '</div></div>';
   }
   listEl.innerHTML = html;
-}
-
-/* ── 초안 HTML 빌드 (키워드 매칭) ────────────────────────────────── */
-function _oqBuildDraftHtml(idx, top) {
-  var draft = _oqMakeDraft(top);
-  var imgs  = _oqCollectImgs(top);
-  if (!draft) {
-    return '<div class="oq-nomatch">&#128269; 관련 정책 정보를 찾지 못했습니다. 수동으로 답변해주세요.</div>';
-  }
-  var h = '';
-  h += '<div class="oq-draft" id="oq-d-'+idx+'">'+esc(draft.text)+'</div>';
-  // 참고 이미지
-  if (imgs.length) {
-    h += '<div class="oq-sec" style="margin-top:14px">&#128204; 참고 이미지 (관련 정책에서 추출)</div>';
-    h += '<div class="oq-imgs">';
-    for (var k=0;k<imgs.length;k++) {
-      var s = imgs[k].src;
-      var dispSrc = (s.startsWith('http')||s.startsWith('data:')) ? s : 'data:image/png;base64,'+s;
-      var escapedSrc = dispSrc.replace(/'/g,"\\'");
-      var cap = esc(imgs[k].cap||'');
-      h += '<div class="oq-img-wrap" onclick="openImgModal(\''+escapedSrc+'\',\''+cap+'\')">';
-      h += '<img class="oq-img-thumb" src="'+esc(dispSrc)+'" alt="'+cap+'" loading="lazy">';
-      if (imgs[k].cap) h += '<div class="oq-img-cap">'+cap+'</div>';
-      h += '</div>';
-    }
-    h += '</div>';
-  }
-  h += '<div class="oq-draft-foot">';
-  if (draft.refs.length) h += '<div class="oq-ref">&#128206; '+esc(draft.refs.slice(0,4).join(' · '))+'</div>';
-  h += '<button class="oq-gen-btn" id="oq-gbtn-'+idx+'" onclick="oqGenGroq('+idx+',event)">&#10024; AI 답변 생성</button>';
-  h += '<button class="oq-copy" onclick="oqCopy('+idx+',event)">&#128203; 복사</button>';
-  h += '</div>';
-  return h;
 }
 
 /* ── KB 스코어링 ─────────────────────────────────────────────────── */
@@ -4179,14 +4135,16 @@ async function oqGenGroq(idx, e) {
                     data.choices[0].message &&
                     data.choices[0].message.content;
     if (generated) {
-      var draftEl = document.getElementById('oq-d-'+idx);
-      if (draftEl) {
-        draftEl.textContent = generated;
-        draftEl.style.background = '#f0f0ff';
-        draftEl.style.borderColor = '#c4b5fd';
-        draftEl.style.color = '#3730a3';
+      // 답변 영역에 결과 표시 (버튼 위치에 draft + 복사 버튼 삽입)
+      var areaEl = document.getElementById('oq-area-'+idx);
+      if (areaEl) {
+        areaEl.innerHTML =
+          '<div class="oq-draft" id="oq-d-'+idx+'" style="background:#f0f0ff;border-color:#c4b5fd;color:#3730a3">'+esc(generated)+'</div>'
+          +'<div class="oq-draft-foot" style="margin-top:10px">'
+          +'<button class="oq-gen-btn" id="oq-gbtn-'+idx+'" onclick="oqGenGroq('+idx+',event)" style="padding:6px 14px;font-size:12px">&#10024; 재생성</button>'
+          +'<button class="oq-copy" onclick="oqCopy('+idx+',event)" style="padding:6px 14px;font-size:12px">&#128203; 복사</button>'
+          +'</div>';
       }
-      if (btn) btn.textContent = '✅ AI 생성됨';
     } else {
       throw new Error('빈 응답: ' + JSON.stringify(data).slice(0,200));
     }
@@ -4195,7 +4153,8 @@ async function oqGenGroq(idx, e) {
     if (btn) { btn.textContent = '⚠ 재시도'; btn.disabled = false; }
   } finally {
     _oqBusy[idx] = false;
-    if (btn) btn.disabled = false;
+    var b2 = document.getElementById('oq-gbtn-'+idx);
+    if (b2) b2.disabled = false;
   }
 }
 window.oqGenGroq = oqGenGroq;
