@@ -1,0 +1,10 @@
+{
+  "name": "oqupie-sync",
+  "version": "1.0.0",
+  "description": "OQUPIE 티켓 크롤링 → Firebase 저장",
+  "main": "sync_oqupie.js",
+  "dependencies": {
+    "puppeteer": "^21.11.0",
+    "firebase-admin": "^12.1.0"
+  }
+}
