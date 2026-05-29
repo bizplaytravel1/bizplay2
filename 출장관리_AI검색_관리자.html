@@ -182,6 +182,39 @@ header{background:#1a1f36;padding:0 24px;display:flex;align-items:center;gap:16p
 .btn-dl-excel{background:#16a34a;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:8px}
 .btn-dl-excel:hover{background:#15803d}
 .sel-count{font-size:12px;color:#ef4444;font-weight:700;margin-left:6px;display:none}
+/* ── OQUPIE 답변초안 ── */
+.oq-key-row{display:flex;align-items:center;gap:8px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:10px;padding:8px 14px;font-size:12px;flex-wrap:wrap;margin-bottom:16px}
+.oq-key-label{font-weight:700;color:#92400e;white-space:nowrap}
+.oq-key-inp{flex:1;min-width:140px;border:1.5px solid #fde68a;border-radius:8px;padding:6px 10px;font-size:12px;font-family:'Noto Sans KR',sans-serif;background:#fff;color:#1a1f36;outline:none}
+.oq-key-inp:focus{border-color:#f59e0b}
+.oq-key-save{background:#f59e0b;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap}
+.oq-key-save:hover{background:#d97706}
+.oq-ticket{background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;margin-bottom:10px;overflow:hidden;transition:border-color .2s}
+.oq-ticket:hover{border-color:#bfdbfe}.oq-ticket.open{border-color:#93c5fd}
+.oq-thead{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;user-select:none}
+.oq-tnum{font-size:12px;font-weight:700;color:#94a3c0;min-width:32px;flex-shrink:0}
+.oq-tinfo{flex:1;min-width:0}
+.oq-tsubject{font-size:13px;font-weight:600;color:#1a1f36;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oq-tmeta{font-size:11px;color:#94a3c0;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oq-tarrow{font-size:12px;color:#94a3c0;transition:transform .2s;flex-shrink:0}
+.oq-ticket.open .oq-tarrow{transform:rotate(180deg)}
+.oq-tbody{display:none;padding:0 16px 16px;border-top:1px solid #f1f5f9}
+.oq-ticket.open .oq-tbody{display:block}
+.oq-sec{font-size:11px;font-weight:700;color:#94a3c0;letter-spacing:.06em;text-transform:uppercase;margin:12px 0 6px}
+.oq-original{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:12px;color:#4b5680;line-height:1.8;white-space:pre-wrap;word-break:break-word;max-height:180px;overflow-y:auto}
+.oq-draft{background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:12px;font-size:13px;color:#166534;line-height:1.8;white-space:pre-wrap;word-break:break-word;transition:all .3s;min-height:80px}
+.oq-draft-foot{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.oq-ref{font-size:11px;color:#94a3c0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.oq-gen-btn{background:#7c3aed;color:#fff;border:none;border-radius:7px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap}
+.oq-gen-btn:hover{background:#6d28d9}.oq-gen-btn:disabled{opacity:.55;cursor:wait}
+.oq-copy{background:#2563eb;color:#fff;border:none;border-radius:7px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap}
+.oq-copy:hover{background:#1d4ed8}
+.oq-nomatch{font-size:13px;color:#dc2626;padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px}
+.oq-imgs{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.oq-img-wrap{cursor:pointer;text-align:center;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;transition:transform .15s}
+.oq-img-wrap:hover{transform:scale(1.04);border-color:#93c5fd}
+.oq-img-thumb{width:80px;height:80px;object-fit:cover;display:block}
+.oq-img-cap{font-size:10px;color:#94a3c0;text-align:center;max-width:80px;word-break:break-all;padding:2px 4px}
 </style>
 </head>
 <body>
@@ -242,6 +275,10 @@ header{background:#1a1f36;padding:0 24px;display:flex;align-items:center;gap:16p
         <div class="sb-label">📊 모니터링</div>
         <div class="sb-item" id="sb-logs" data-tab="logs">📊 접속 로그 <span class="sb-cnt" id="cn-logs">-</span></div>
         <div class="sb-item" id="sb-admin-logs" data-tab="admin-logs">📋 관리자 로그 <span class="sb-cnt" id="cn-admin-logs">-</span></div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-label">💌 OQUPIE</div>
+        <div class="sb-item" id="sb-oqupie" data-tab="oqupie">💌 답변초안 <span class="sb-cnt" id="cn-oqupie">-</span></div>
       </div>
       <div class="sb-section">
         <div class="sb-label">⚙️ 설정 &amp; 도움말</div>
@@ -552,6 +589,7 @@ function render(){
   else if(TAB==='accounts')    renderAccounts(m);
   else if(TAB==='logs')        renderLogs(m);
   else if(TAB==='admin-logs')  renderAdminLogs(m);
+  else if(TAB==='oqupie')      renderOqupie(m);
   else if(TAB==='help-search') renderHelpSearch(m);
   else if(TAB==='help-admin')  renderHelpAdmin(m);
 }
@@ -1966,6 +2004,275 @@ document.addEventListener('drop', function(e){
   var z=e.target.closest('[data-zonekey]');
   if(z){e.preventDefault();z.classList.remove('dragover');handleImgFile(z.dataset.zonekey,e.dataTransfer.files[0]);}
 });
+
+/* ══════════════════════════════════════════════════════════
+   OQUPIE 답변초안
+══════════════════════════════════════════════════════════ */
+var _oqLoaded=false, _oqTickets=null, _oqBusy={};
+
+function oqNorm(s){ return (s||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function oqTokenize(s){
+  var n=oqNorm(s);
+  var toks=n.split(/[\s,._\-\/|()]+/).filter(function(t){return t.length>=1;});
+  var bg=[];
+  for(var i=0;i<toks.length-1;i++) bg.push(toks[i]+toks[i+1]);
+  return toks.concat(bg);
+}
+function oqScoreItem(item,tokens,qn){
+  var fields=[{t:item.question,w:3},{t:item.answer,w:2},{t:item.category,w:1.5},{t:item.item||'',w:1.5},{t:item.source,w:1}];
+  var s=0;
+  for(var fi=0;fi<fields.length;fi++){
+    var n=oqNorm(fields[fi].t),w=fields[fi].w;
+    if(n.indexOf(qn)>=0) s+=w*5;
+    for(var ti=0;ti<tokens.length;ti++){
+      var tok=tokens[ti]; if(tok.length<2) continue;
+      var idx=0,cnt=0;
+      while((idx=n.indexOf(tok,idx))>=0){cnt++;idx+=tok.length;}
+      if(cnt>0) s+=w*(tok.length>=4?2:1)*Math.min(cnt,3);
+    }
+  }
+  return s;
+}
+function _oqBuildAllItems(){
+  var items=[];
+  DATA.qa.forEach(function(q){
+    items.push({type:'qa',source:q.s||'',category:q.c||'',item:'',
+      question:q.q||'',answer:q.a||'',remark:q.r||'',
+      img:q.img||'',img_caption:q.img_caption||'',
+      img0:q.img0||'',img1:q.img1||'',img1_caption:q.img1_caption||'',
+      img2:q.img2||'',img2_caption:q.img2_caption||'',
+      img3:q.img3||'',img4:q.img4||'',xs:q.xs||0});
+  });
+  (DATA.manual||[]).forEach(function(m){
+    items.push({type:'manual',source:m.s||'',category:m.c||'',item:m.it||'',
+      question:m.q||'',answer:m.a||'',remark:m.r||'',
+      img:m.img||'',img_caption:m.img_caption||'',
+      img0:m.img0||'',img1:m.img1||'',img1_caption:m.img1_caption||'',
+      img2:m.img2||'',img2_caption:m.img2_caption||'',
+      img3:m.img3||'',img4:m.img4||'',xs:m.xs||0});
+  });
+  return items;
+}
+function _oqScore(ticket){
+  var allItems=_oqBuildAllItems();
+  var text=(ticket.subject||'')+'\n'+(ticket.body||'');
+  var qn=oqNorm(text), tokens=oqTokenize(text);
+  var scored=[];
+  for(var i=0;i<allItems.length;i++){
+    var item=allItems[i]; if(item.xs) continue;
+    var sc=oqScoreItem(item,tokens,qn);
+    if(sc>0){
+      var ansN=oqNorm(item.answer||'');
+      for(var j=0;j<tokens.length;j++){
+        if(tokens[j].length>=4&&ansN.indexOf(tokens[j])>=0) sc*=1.08;
+      }
+      scored.push({item:item,sc:sc});
+    }
+  }
+  scored.sort(function(a,b){return b.sc-a.sc;});
+  return scored.slice(0,6);
+}
+function _oqMakeDraft(top){
+  if(!top.length) return null;
+  var parts=[],refs=[],seen={};
+  for(var j=0;j<top.length;j++){
+    var ans=(top[j].item.answer||'').trim();
+    if(!ans||seen[ans.slice(0,40)]) continue;
+    seen[ans.slice(0,40)]=1; parts.push(ans);
+    var ref=top[j].item.category||top[j].item.source||'';
+    if(ref&&refs.indexOf(ref)<0) refs.push(ref);
+    if(parts.length>=3) break;
+  }
+  if(!parts.length) return null;
+  return {
+    text:'안녕하세요.\n문의하신 내용에 대해 답변드립니다.\n\n'
+      +parts.join('\n\n')+'\n\n추가 문의사항은 고객센터로 연락해 주시기 바랍니다.\n감사합니다.',
+    refs:refs
+  };
+}
+function _oqCollectImgsAdm(top){
+  var imgs=[],seen={};
+  for(var i=0;i<Math.min(top.length,3);i++){
+    var item=top[i].item;
+    var fields=[{src:item.img,cap:item.img_caption||item.category||''},{src:item.img0,cap:''},{src:item.img1,cap:item.img1_caption||''},{src:item.img2,cap:item.img2_caption||''},{src:item.img3,cap:''},{src:item.img4,cap:''}];
+    for(var j=0;j<fields.length;j++){
+      var src=(fields[j].src||'').trim();
+      if(!src||seen[src.slice(0,40)]) continue;
+      seen[src.slice(0,40)]=1;
+      imgs.push({src:src,cap:fields[j].cap});
+      if(imgs.length>=6) return imgs;
+    }
+  }
+  return imgs;
+}
+function _oqBuildDraftHtml(idx,top){
+  var draft=_oqMakeDraft(top);
+  var imgs=_oqCollectImgsAdm(top);
+  if(!draft) return '<div class="oq-nomatch">🔍 관련 정책 정보를 찾지 못했습니다. 수동으로 답변해주세요.</div>';
+  var h='<div class="oq-draft" id="oq-d-'+idx+'">'+esc(draft.text)+'</div>';
+  if(imgs.length){
+    h+='<div class="oq-sec" style="margin-top:14px">📌 참고 이미지</div><div class="oq-imgs">';
+    for(var k=0;k<imgs.length;k++){
+      var s=imgs[k].src;
+      var dispSrc=(s.startsWith('http')||s.startsWith('data:'))?s:'data:image/png;base64,'+s;
+      var escapedSrc=dispSrc.replace(/'/g,"\\'");
+      var cap=esc(imgs[k].cap||'');
+      h+='<div class="oq-img-wrap" onclick="oqOpenImg(\''+escapedSrc+'\',\''+cap+'\')"><img class="oq-img-thumb" src="'+esc(dispSrc)+'" alt="'+cap+'" loading="lazy">'+(imgs[k].cap?'<div class="oq-img-cap">'+cap+'</div>':'')+'</div>';
+    }
+    h+='</div>';
+  }
+  h+='<div class="oq-draft-foot">';
+  if(draft.refs.length) h+='<div class="oq-ref">📎 '+esc(draft.refs.slice(0,4).join(' · '))+'</div>';
+  h+='<button class="oq-gen-btn" id="oq-gbtn-'+idx+'" onclick="oqGenGroq('+idx+',event)">✨ AI 답변 생성</button>';
+  h+='<button class="oq-copy" onclick="oqCopy('+idx+',event)">📋 복사</button>';
+  h+='</div>';
+  return h;
+}
+
+function renderOqupie(m){
+  m.innerHTML='<div class="loading"><div class="spin"></div><br>OQUPIE 데이터 불러오는 중...</div>';
+  var k=(localStorage.getItem('oq_groq_key')||'');
+  var keyRow='<div class="oq-key-row">'
+    +'<span class="oq-key-label">🔑 Groq API Key</span>'
+    +'<input class="oq-key-inp" id="oq-gem-key" type="password" placeholder="없으면 KB 키워드 매칭만 사용" value="'+esc(k)+'">'
+    +'<button class="oq-key-save" onclick="oqSaveKey()">저장</button>'
+    +'<span id="oq-key-st" style="font-size:11px;color:#059669;font-weight:700">'+(k?'✅ 저장됨':'')+'</span>'
+    +'<a href="https://console.groq.com/keys" target="_blank" style="font-size:11px;color:#2563eb">무료 발급: console.groq.com</a>'
+    +'</div>';
+
+  db.collection('oqupie_tickets').orderBy('created_at','desc').get()
+    .then(function(snap){
+      _oqLoaded=true;
+      _oqTickets=snap.docs.map(function(d){
+        var v=d.data();
+        return {
+          _docId: d.id,
+          id: v.id || d.id,
+          subject: v.subject || '',
+          body: v.body || '',
+          from_name: v.from_name || '',
+          from_email: v.from_email || '',
+          created_at: v.created_at || '',
+          status: v.status || ''
+        };
+      });
+      var cnEl=document.getElementById('cn-oqupie');
+      if(cnEl) cnEl.textContent=_oqTickets.length;
+      var updTxt='';
+      var h='<div class="page-hdr">'
+        +'<div class="page-title">💌 OQUPIE 답변초안 <small>'+_oqTickets.length+'건</small> '+updTxt+'</div>'
+        +'<div class="page-actions"><button class="btn btn-ghost btn-sm" onclick="renderOqupie(document.getElementById(\'main\'))">↻ 새로고침</button></div>'
+        +'</div>';
+      h+=keyRow;
+      if(_oqTickets.length===0){
+        h+='<div class="empty">📭 인입된 문의가 없습니다.</div>';
+        m.innerHTML=h; return;
+      }
+      h+='<div id="oq-list">';
+      for(var i=0;i<_oqTickets.length;i++){
+        var t=_oqTickets[i];
+        var top=_oqScore(t);
+        var meta=[];
+        if(t.from_name)  meta.push(t.from_name);
+        if(t.from_email) meta.push(t.from_email);
+        if(t.created_at) meta.push((t.created_at||'').slice(0,16).replace('T',' '));
+        h+='<div class="oq-ticket" id="oq-t-'+i+'">';
+        h+='<div class="oq-thead" onclick="oqToggle('+i+')">';
+        h+='<div class="oq-tnum">#'+esc(t.id||String(i+1))+'</div>';
+        h+='<div class="oq-tinfo"><div class="oq-tsubject">'+esc(t.subject||'(제목 없음)')+'</div>';
+        if(meta.length) h+='<div class="oq-tmeta">'+esc(meta.join(' · '))+'</div>';
+        h+='</div><span class="oq-tarrow">▼</span></div>';
+        h+='<div class="oq-tbody">';
+        if(t.body&&t.body.trim()){
+          h+='<div class="oq-sec">원문 문의</div><div class="oq-original">'+esc(t.body.trim())+'</div>';
+        }
+        h+='<div class="oq-sec">답변 초안</div><div id="oq-area-'+i+'">'+_oqBuildDraftHtml(i,top)+'</div>';
+        h+='</div></div>';
+      }
+      h+='</div>';
+      m.innerHTML=h;
+    })
+    .catch(function(e){
+      m.innerHTML='<div class="page-hdr"><div class="page-title">💌 OQUPIE 답변초안</div>'
+        +'<div class="page-actions"><button class="btn btn-ghost btn-sm" onclick="renderOqupie(document.getElementById(\'main\'))">↻ 재시도</button></div></div>'
+        +keyRow
+        +'<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:24px;text-align:center;color:#dc2626;line-height:1.9">'
+        +'⚠️ 데이터를 불러오지 못했습니다.<br><small>'+esc(e.message)+'</small><br><br>'
+        +'<small style="color:#94a3c0">Firebase Firestore에 oqupie_tickets 컬렉션을 생성하거나 보안 규칙을 확인해주세요.</small></div>';
+    });
+}
+
+function oqSaveKey(){
+  var k=((document.getElementById('oq-gem-key')||{}).value||'').trim();
+  localStorage.setItem('oq_groq_key',k);
+  var st=document.getElementById('oq-key-st');
+  if(st){st.textContent=k?'✅ 저장됨':'🗑 삭제됨';st.style.color=k?'#059669':'#dc2626';
+    setTimeout(function(){st.style.color='';st.textContent=k?'✅ 저장됨':'';},2500);}
+}
+
+async function oqGenGroq(idx,e){
+  e.stopPropagation();
+  if(_oqBusy[idx]) return;
+  var apiKey=(localStorage.getItem('oq_groq_key')||'').trim();
+  if(!apiKey){alert('상단 🔑 입력란에 Groq API Key를 입력하고 저장해주세요.\n(무료 발급: https://console.groq.com/keys)');return;}
+  var ticket=_oqTickets&&_oqTickets[idx];
+  if(!ticket) return;
+  _oqBusy[idx]=true;
+  var btn=document.getElementById('oq-gbtn-'+idx);
+  if(btn){btn.textContent='⏳ 생성 중...';btn.disabled=true;}
+  var top=_oqScore(ticket);
+  var inquiry=(ticket.subject||'')+'\n'+(ticket.body||'');
+  var ctx=top.slice(0,5).map(function(x,i){
+    var it=x.item;
+    return '['+(i+1)+'] 분류:'+(it.category||it.source||'')+'\n문서명:'+(it.item||'')+'\nQ:'+(it.question||'').slice(0,300)+'\nA:'+(it.answer||'').slice(0,600)+(it.remark?'\n비고:'+it.remark.slice(0,150):'');
+  }).join('\n\n');
+  try{
+    var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',
+      {method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({
+        model:'llama3-70b-8192',
+        messages:[
+          {role:'system',content:'당신은 현대자동차 트리플러스 출장관리 전문 상담원입니다. 제공된 정책/FAQ 전체 내용을 바탕으로 정확하고 친절한 답변 이메일을 한국어로 작성하세요.\n규칙:\n- 정책에 없는 내용은 추측하지 말고 "별도 문의 필요"로 안내\n- 인사말로 시작하고, 마무리 인사로 끝낼 것\n- 답변만 출력'},
+          {role:'user',content:'고객 문의:\n'+inquiry+'\n\n관련 정책/FAQ:\n'+ctx+'\n\n답변 이메일:'}
+        ],
+        max_tokens:1200,temperature:0.2
+      })});
+    var d2=await resp.json();
+    if(d2.error) throw new Error(d2.error.message||JSON.stringify(d2.error));
+    var generated=d2.choices&&d2.choices[0]&&d2.choices[0].message&&d2.choices[0].message.content;
+    if(generated){
+      var draftEl=document.getElementById('oq-d-'+idx);
+      if(draftEl){draftEl.textContent=generated;draftEl.style.background='#f0f0ff';draftEl.style.borderColor='#c4b5fd';draftEl.style.color='#3730a3';}
+      if(btn) btn.textContent='✅ AI 생성됨';
+    } else { throw new Error('빈 응답'); }
+  } catch(err){
+    alert('Groq 오류: '+err.message);
+    if(btn){btn.textContent='⚠ 재시도';btn.disabled=false;}
+  } finally {
+    _oqBusy[idx]=false;
+    if(btn) btn.disabled=false;
+  }
+}
+
+function oqToggle(idx){
+  var el=document.getElementById('oq-t-'+idx);
+  if(el) el.classList.toggle('open');
+}
+function oqCopy(idx,e){
+  e.stopPropagation();
+  var el=document.getElementById('oq-d-'+idx);
+  if(!el) return;
+  var txt=el.innerText||el.textContent;
+  var btn=e.currentTarget||e.target;
+  function done(){btn.textContent='✅ 복사됨';btn.style.background='#059669';
+    setTimeout(function(){btn.textContent='📋 복사';btn.style.background='';},1800);}
+  if(navigator.clipboard){navigator.clipboard.writeText(txt).then(done).catch(function(){var ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);done();});}
+  else{var ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);done();}
+}
+function oqOpenImg(src){
+  var lb=document.getElementById('lightbox');
+  document.getElementById('lb-img').src=src;
+  lb.classList.add('open');
+}
 
 })(); // IIFE 끝
 </script>

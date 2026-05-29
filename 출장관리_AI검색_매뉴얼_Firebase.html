@@ -3883,15 +3883,15 @@ init();
     </div>
   </div>
 
-  <!-- Gemini API Key 설정 (무료 https://aistudio.google.com/app/apikey) -->
+  <!-- Groq API Key 설정 (무료 https://console.groq.com/keys) -->
   <div class="oq-key-bar">
-    <span class="oq-key-label">&#128273; Gemini API Key</span>
+    <span class="oq-key-label">&#128273; Groq API Key</span>
     <input class="oq-key-input" id="oq-gem-key" type="password"
-      placeholder="AIzaSy... 없으면 KB 키워드 매칭만 사용" />
+      placeholder="gsk_... 없으면 KB 키워드 매칭만 사용" />
     <button class="oq-btn" style="padding:7px 14px;font-size:12px" onclick="oqSaveKey()">저장</button>
     <span class="oq-key-status" id="oq-key-st"></span>
     <span style="font-size:11px;color:var(--text3)">
-      무료 발급: <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com</a>
+      무료 발급: <a href="https://console.groq.com/keys" target="_blank" style="color:var(--accent)">console.groq.com</a>
     </span>
   </div>
 
@@ -3911,7 +3911,7 @@ var _oqBusy    = {};
 
 /* ── Gemini 키 초기화 ───────────────────────────────────────────── */
 (function(){
-  var k = localStorage.getItem('oq_gemini_key') || '';
+  var k = localStorage.getItem('oq_groq_key') || '';
   if (k) {
     document.getElementById('oq-gem-key').value = k;
     document.getElementById('oq-key-st').textContent = '✅ 저장됨';
@@ -3922,7 +3922,7 @@ var _oqBusy    = {};
 function oqSaveKey() {
   var k  = document.getElementById('oq-gem-key').value.trim();
   var st = document.getElementById('oq-key-st');
-  localStorage.setItem('oq_gemini_key', k);
+  localStorage.setItem('oq_groq_key', k);
   st.textContent = k ? '✅ 저장됨' : '🗑 삭제됨';
   st.style.color = k ? '#059669' : '#dc2626';
   setTimeout(function(){ st.style.color=''; st.textContent = k ? '✅ 저장됨' : ''; }, 2500);
@@ -3938,21 +3938,29 @@ function loadOqupiePage(force) {
   statusEl.innerHTML = '<div class="spinner" style="margin:0 auto 10px"></div>티켓 데이터 불러오는 중...';
   listEl.style.display = 'none';
 
-  fetch('data/oqupie_tickets.json?_=' + Date.now())
-    .then(function(r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    })
-    .then(function(data) {
+  db.collection('oqupie_tickets').orderBy('created_at', 'desc').get()
+    .then(function(snap) {
       _oqLoaded  = true;
-      _oqTickets = Array.isArray(data.tickets) ? data.tickets : [];
-      _oqRender(data);
+      _oqTickets = snap.docs.map(function(d) {
+        var v = d.data();
+        return {
+          _docId:     d.id,
+          id:         v.id || d.id,
+          subject:    v.subject    || '',
+          body:       v.body       || '',
+          from_name:  v.from_name  || '',
+          from_email: v.from_email || '',
+          created_at: v.created_at || '',
+          status:     v.status     || ''
+        };
+      });
+      _oqRender({});
     })
     .catch(function(e) {
       statusEl.innerHTML =
         '<div style="color:#dc2626;line-height:1.8">&#9888; 데이터를 불러오지 못했습니다.<br>' +
         '<small>' + esc(e.message) + '</small><br><br>' +
-        '<small style="color:var(--text3)">GitHub Pages에서 접근하거나 GitHub Actions를 먼저 실행하세요.</small></div>';
+        '<small style="color:var(--text3)">Firebase Firestore에 oqupie_tickets 컬렉션을 확인해주세요.</small></div>';
     });
 }
 window.loadOqupiePage = loadOqupiePage;
@@ -3962,9 +3970,10 @@ function _oqRender(data) {
   var statusEl = document.getElementById('oq-status');
   var listEl   = document.getElementById('oq-list');
   document.getElementById('oq-cnt').textContent = _oqTickets.length + '건';
-  if (data.updated_at) {
-    try { document.getElementById('oq-upd').textContent = '업데이트: ' + new Date(data.updated_at).toLocaleString('ko-KR'); } catch(e){}
-  }
+  try {
+    var updEl = document.getElementById('oq-upd');
+    if (updEl) updEl.textContent = '업데이트: ' + new Date().toLocaleString('ko-KR');
+  } catch(e){}
   statusEl.style.display = 'none';
   listEl.style.display   = 'block';
 
@@ -4036,7 +4045,7 @@ function _oqBuildDraftHtml(idx, top) {
   }
   h += '<div class="oq-draft-foot">';
   if (draft.refs.length) h += '<div class="oq-ref">&#128206; '+esc(draft.refs.slice(0,4).join(' · '))+'</div>';
-  h += '<button class="oq-gen-btn" id="oq-gbtn-'+idx+'" onclick="oqGenGemini('+idx+',event)">&#10024; AI 답변 생성</button>';
+  h += '<button class="oq-gen-btn" id="oq-gbtn-'+idx+'" onclick="oqGenGroq('+idx+',event)">&#10024; AI 답변 생성</button>';
   h += '<button class="oq-copy" onclick="oqCopy('+idx+',event)">&#128203; 복사</button>';
   h += '</div>';
   return h;
@@ -4111,13 +4120,13 @@ function _oqCollectImgs(top) {
   return imgs;
 }
 
-/* ── Gemini AI 답변 생성 ─────────────────────────────────────────── */
-async function oqGenGemini(idx, e) {
+/* ── Groq AI 답변 생성 ─────────────────────────────────────────── */
+async function oqGenGroq(idx, e) {
   e.stopPropagation();
   if (_oqBusy[idx]) return;
-  var apiKey = (localStorage.getItem('oq_gemini_key')||'').trim();
+  var apiKey = (localStorage.getItem('oq_groq_key')||'').trim();
   if (!apiKey) {
-    alert('상단 🔑 입력란에 Gemini API Key를 입력하고 저장해주세요.\n(무료 발급: https://aistudio.google.com/app/apikey)');
+    alert('상단 🔑 입력란에 Groq API Key를 입력하고 저장해주세요.\n(무료 발급: https://console.groq.com/keys)');
     return;
   }
   var ticket = _oqTickets && _oqTickets[idx];
@@ -4141,32 +4150,34 @@ async function oqGenGemini(idx, e) {
 
   try {
     var resp = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+apiKey,
+      'https://api.groq.com/openai/v1/chat/completions',
       {
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
         body: JSON.stringify({
-          contents:[{parts:[{text:
-            '당신은 현대자동차 트리플러스 출장관리 전문 상담원입니다.\n' +
-            '아래 고객 문의를 분석하고, 제공된 정책/FAQ 전체 내용을 바탕으로 정확하고 친절한 답변 이메일을 한국어로 작성하세요.\n\n' +
-            '규칙:\n' +
-            '- 정책에 없는 내용은 추측하지 말고 "별도 문의 필요"로 안내\n' +
-            '- 인사말로 시작하고, 마무리 인사로 끝낼 것\n' +
-            '- 답변만 출력 (설명이나 메타 코멘트 없이)\n\n' +
-            '고객 문의:\n'+inquiry+'\n\n관련 정책/FAQ:\n'+ctx+'\n\n답변 이메일:'
-          }]}],
-          generationConfig:{maxOutputTokens:1200, temperature:0.2}
+          model: 'llama3-70b-8192',
+          messages: [
+            { role: 'system', content:
+              '당신은 현대자동차 트리플러스 출장관리 전문 상담원입니다.\n' +
+              '제공된 정책/FAQ 전체 내용을 바탕으로 정확하고 친절한 답변 이메일을 한국어로 작성하세요.\n' +
+              '규칙:\n- 정책에 없는 내용은 추측하지 말고 "별도 문의 필요"로 안내\n' +
+              '- 인사말로 시작하고, 마무리 인사로 끝낼 것\n- 답변만 출력 (메타 코멘트 없이)'
+            },
+            { role: 'user', content:
+              '고객 문의:\n'+inquiry+'\n\n관련 정책/FAQ:\n'+ctx+'\n\n답변 이메일:'
+            }
+          ],
+          max_tokens: 1200,
+          temperature: 0.2
         })
       }
     );
     var data = await resp.json();
     if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-    var generated = data.candidates &&
-                    data.candidates[0] &&
-                    data.candidates[0].content &&
-                    data.candidates[0].content.parts &&
-                    data.candidates[0].content.parts[0] &&
-                    data.candidates[0].content.parts[0].text;
+    var generated = data.choices &&
+                    data.choices[0] &&
+                    data.choices[0].message &&
+                    data.choices[0].message.content;
     if (generated) {
       var draftEl = document.getElementById('oq-d-'+idx);
       if (draftEl) {
@@ -4180,14 +4191,14 @@ async function oqGenGemini(idx, e) {
       throw new Error('빈 응답: ' + JSON.stringify(data).slice(0,200));
     }
   } catch(err) {
-    alert('Gemini 오류: ' + err.message);
+    alert('Groq 오류: ' + err.message);
     if (btn) { btn.textContent = '⚠ 재시도'; btn.disabled = false; }
   } finally {
     _oqBusy[idx] = false;
     if (btn) btn.disabled = false;
   }
 }
-window.oqGenGemini = oqGenGemini;
+window.oqGenGroq = oqGenGroq;
 
 /* ── 토글 / 복사 ─────────────────────────────────────────────────── */
 function oqToggle(idx) {
