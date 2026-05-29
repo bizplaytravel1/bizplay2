@@ -1,0 +1,36 @@
+name: OQUPIE 티켓 동기화
+
+on:
+  workflow_dispatch:          # 수동 실행 (GitHub Actions 탭에서 Run workflow)
+  schedule:
+    - cron: '0 * * * *'       # 매 1시간마다 자동 실행 (UTC 기준)
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Puppeteer 의존성 설치
+        run: |
+          sudo apt-get install -y \
+            libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+            libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 \
+            libgbm1 libasound2
+
+      - name: 패키지 설치
+        working-directory: scripts
+        run: npm install
+
+      - name: OQUPIE 동기화 실행
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        working-directory: scripts
+        run: node sync_oqupie.js
