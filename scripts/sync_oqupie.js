@@ -237,24 +237,18 @@ async function main() {
     console.log('티켓 목록 페이지로 이동...');
     await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-    // SPA 렌더링 대기 — #번호 패턴이 화면에 나타날 때까지
+    // SPA 렌더링 대기 — 5자리 숫자(티켓번호) 패턴이 나타날 때까지
     console.log('티켓 목록 렌더링 대기 중...');
     try {
       await page.waitForFunction(
-        () => document.body.innerText.includes('#'),
+        () => /\b\d{4,6}\b/.test(document.body.innerText),
         { timeout: 15000, polling: 800 }
       );
       console.log('✅ 티켓 목록 렌더링 확인');
     } catch (_) {
-      console.log('⚠️ 15초 후에도 # 패턴 없음 — 강제 진행');
+      console.log('⚠️ 15초 후에도 티켓 번호 없음 — 강제 진행');
     }
     await sleep(2000);
-
-    // 현재 페이지 HTML 일부 출력 (디버그)
-    const listHtml = await page.evaluate(() => document.body.innerText.slice(0, 1000));
-    console.log('=== 티켓 목록 페이지 텍스트 (처음 1000자) ===');
-    console.log(listHtml);
-    console.log('=== END ===');
 
     // 무한스크롤 처리
     let prevHeight = 0;
@@ -266,70 +260,82 @@ async function main() {
       prevHeight = h;
     }
 
-    // ── 티켓 목록 추출 ──────────────────────────────────────────
+    // ── 티켓 목록 추출 (OQUPIE 실제 DOM 구조 기반) ──────────────
     const ticketList = await page.evaluate(() => {
       const results = [];
 
-      // 방법 1: 테이블 행
-      const rows = document.querySelectorAll(
-        'table tbody tr, [class*="ticket-row"], [class*="ticketRow"]'
-      );
-      if (rows.length > 0) {
-        rows.forEach(row => {
-          const cells    = row.querySelectorAll('td');
-          const allText  = row.innerText || '';
-          const numMatch = allText.match(/#(\d+)/);
-          const subjectEl = row.querySelector('[class*="subject"], [class*="title"], [class*="name"]');
-          const dateEl    = row.querySelector('[class*="date"], [class*="time"], [class*="created"]');
-          const link      = row.querySelector('a[href*="ticket"]');
-          if (numMatch) {
-            results.push({
-              num:      '#' + numMatch[1],
-              subject:  subjectEl ? subjectEl.innerText.trim() : (cells[1] ? cells[1].innerText.trim() : ''),
-              date_raw: dateEl ? dateEl.innerText.trim() : '',
-              href:     link ? link.href : ''
-            });
-          }
-        });
-      }
+      // OQUPIE는 각 티켓을 클릭 가능한 행/카드로 렌더링
+      // URL 패턴 /tickets/v5/{숫자} 로 링크를 찾음
+      const ticketLinks = Array.from(
+        document.querySelectorAll('a[href*="/tickets/"]')
+      ).filter(a => /\/tickets\/[^/]*\/\d+/.test(a.href) || /\/tickets\/v\d+\/\d+/.test(a.href) || /\/tickets\/\d+/.test(a.href));
 
-      // 방법 2: 카드형
-      if (results.length === 0) {
-        document.querySelectorAll(
-          '[class*="ticket-item"], [class*="ticketItem"], [class*="ticket-card"]'
-        ).forEach(card => {
-          const allText  = card.innerText || '';
-          const numMatch = allText.match(/#(\d+)/);
+      if (ticketLinks.length > 0) {
+        ticketLinks.forEach(a => {
+          const numMatch = a.href.match(/\/(\d{4,6})\/?(?:\?|$|\/)/);
           if (!numMatch) return;
-          const subjectEl = card.querySelector('[class*="subject"], [class*="title"], h3, h4, strong');
-          const dateEl    = card.querySelector('[class*="date"], [class*="time"], time');
-          const link      = card.querySelector('a') || card;
-          results.push({
-            num:      '#' + numMatch[1],
-            subject:  subjectEl ? subjectEl.innerText.trim() : '',
-            date_raw: dateEl ? (dateEl.innerText || dateEl.getAttribute('datetime') || '').trim() : '',
-            href:     link.href || ''
-          });
-        });
-      }
-
-      // 방법 3: 링크에서 #번호 추출
-      if (results.length === 0) {
-        Array.from(document.querySelectorAll('a[href*="ticket"]')).forEach(a => {
-          const text     = a.innerText || '';
-          const numMatch = text.match(/#(\d+)/);
-          if (numMatch) {
+          const num     = numMatch[1];
+          const rowEl   = a.closest('tr, li, [class*="row"], [class*="item"], [class*="card"]') || a;
+          const rowText = rowEl.innerText || a.innerText || '';
+          // 날짜 패턴 찾기
+          const dateMatch = rowText.match(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/);
+          // 제목: 첫 번째 긴 텍스트 줄 (이메일, 날짜, 짧은 단어 제외)
+          const lines = rowText.split('\n')
+            .map(l => l.trim())
+            .filter(l => l.length > 3
+              && !l.includes('@')
+              && !/^\d+$/.test(l)
+              && !/\d{4}-\d{2}-\d{2}/.test(l)
+              && !['Low','Medium','High','ko','en','bizplay','All'].includes(l)
+            );
+          const subject = lines[0] || '';
+          if (num && subject) {
             results.push({
-              num:      '#' + numMatch[1],
-              subject:  text.replace(/#\d+/, '').trim(),
-              date_raw: '',
+              num:      '#' + num,
+              subject:  subject,
+              date_raw: dateMatch ? dateMatch[0] : '',
               href:     a.href
             });
           }
         });
       }
 
-      return results.filter(t => t.num && t.subject);
+      // fallback: 5자리 숫자 + 인근 텍스트로 추출
+      if (results.length === 0) {
+        const allEls = Array.from(document.querySelectorAll('*'));
+        const seen   = new Set();
+        allEls.forEach(el => {
+          if (el.children.length > 0) return;
+          const t = (el.innerText || '').trim();
+          if (/^\d{4,6}$/.test(t) && !seen.has(t)) {
+            seen.add(t);
+            const parent = el.closest('tr, li, [class*="row"], [class*="item"]') || el.parentElement;
+            const rowText = parent ? (parent.innerText || '') : '';
+            const lines   = rowText.split('\n').map(l => l.trim()).filter(l =>
+              l.length > 3 && !l.includes('@') && !/^\d+$/.test(l) && !/\d{4}-\d{2}-\d{2}/.test(l)
+            );
+            const subject  = lines[0] || '';
+            const dateMatch = rowText.match(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/);
+            const link      = parent ? parent.querySelector('a[href*="ticket"]') : null;
+            if (subject) {
+              results.push({
+                num:      '#' + t,
+                subject:  subject,
+                date_raw: dateMatch ? dateMatch[0] : '',
+                href:     link ? link.href : ''
+              });
+            }
+          }
+        });
+      }
+
+      // 중복 제거
+      const seen2 = new Set();
+      return results.filter(t => {
+        if (!t.num || !t.subject || seen2.has(t.num)) return false;
+        seen2.add(t.num);
+        return true;
+      });
     });
 
     console.log(`티켓 ${ticketList.length}개 발견`);
@@ -346,6 +352,11 @@ async function main() {
 
       let body = '';
       const ticketId = tl.num.replace('#', '').trim();
+
+      // href 없으면 티켓번호로 URL 직접 구성
+      if (!tl.href) {
+        tl.href = `https://bizplay.oqupie.com/tickets/v5/${ticketId}/`;
+      }
 
       if (tl.href && tl.href.startsWith('http')) {
         try {
