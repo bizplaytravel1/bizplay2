@@ -43,7 +43,7 @@ async function main() {
 
   const settingsSnap = await db.collection('admin_settings').doc('oqupie').get();
   if (!settingsSnap.exists) {
-    console.error('❌ admin_settings/oqupie 설정이 없습니다.');
+    console.error('❌ admin_settings/oqupie 설정이 없습니다. 관리자 페이지 → OQUPIE 연동 설정에서 먼저 저장해주세요.');
     process.exit(1);
   }
 
