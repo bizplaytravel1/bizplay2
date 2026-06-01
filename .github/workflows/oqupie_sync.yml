@@ -10,17 +10,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+
       - name: Puppeteer 의존성
         run: |
           sudo apt-get install -y libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2t64
+
+      - name: package.json 생성
+        run: |
+          mkdir -p scripts
+          cat > scripts/package.json << 'EOF'
+          {
+            "name": "oqupie-sync",
+            "version": "1.0.0",
+            "dependencies": {
+              "puppeteer": "^21.11.0",
+              "firebase-admin": "^12.1.0"
+            }
+          }
+          EOF
+
       - name: 패키지 설치
-        working-directory: scripts
-        run: npm install
+        run: cd scripts && npm install
+
       - name: 동기화 실행
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        working-directory: scripts
-        run: node sync_oqupie.js
+        run: cd scripts && node sync_oqupie.js
