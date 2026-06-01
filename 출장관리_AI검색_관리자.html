@@ -2414,6 +2414,18 @@ function oqOpenImg(src){
   lb.classList.add('open');
 }
 
+  // ── onclick에서 호출되는 함수들을 전역(window)에 노출 ──────────────
+  window.saveOqupieSettings   = saveOqupieSettings;
+  window.oqSaveKey            = oqSaveKey;
+  window.oqGenGroq            = oqGenGroq;
+  window.oqCopy               = oqCopy;
+  window.oqOpenImg            = oqOpenImg;
+  window.oqToggle             = oqToggle;
+  window.renderOqupie         = renderOqupie;
+  window.renderAccounts       = renderAccounts;
+  window.logsUnsubscribe      = logsUnsubscribe;
+  window.adminLogsUnsubscribe = adminLogsUnsubscribe;
+
 })(); // IIFE 끝
 </script>
 </body>
