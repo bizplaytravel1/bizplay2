@@ -2088,28 +2088,59 @@ function renderOqupieSettings(m) {
 }
 
 function saveOqupieSettings() {
-  if (!isMaster()) return;
-  var url = (document.getElementById('oqs-url').value||'').trim();
-  var id  = (document.getElementById('oqs-id').value||'').trim();
-  var pw  = (document.getElementById('oqs-pw').value||'').trim();
   var msg = document.getElementById('oqs-msg');
-  if (!id || !pw) {
-    msg.textContent = '⚠️ 아이디와 비밀번호를 입력해주세요.';
+  if (!msg) { alert('페이지 오류: 설정 폼을 찾을 수 없습니다.'); return; }
+
+  if (!isMaster()) {
+    msg.textContent = '🔒 마스터 권한이 있는 계정만 저장할 수 있습니다.';
+    msg.style.color = '#ef4444';
+    return;
+  }
+
+  var urlEl = document.getElementById('oqs-url');
+  var idEl  = document.getElementById('oqs-id');
+  var pwEl  = document.getElementById('oqs-pw');
+
+  if (!urlEl || !idEl || !pwEl) {
+    msg.textContent = '⚠️ 입력 폼을 찾을 수 없습니다. 페이지를 새로고침 해주세요.';
     msg.style.color = '#ef4444'; return;
   }
-  msg.textContent = '저장 중...'; msg.style.color = '#94a3c0';
+
+  var url = urlEl.value.trim();
+  var id  = idEl.value.trim();
+  var pw  = pwEl.value.trim();
+
+  if (!id) {
+    msg.textContent = '⚠️ 아이디(이메일)를 입력해주세요.';
+    msg.style.color = '#ef4444'; return;
+  }
+  if (!pw) {
+    msg.textContent = '⚠️ 비밀번호를 입력해주세요.';
+    msg.style.color = '#ef4444'; return;
+  }
+
+  msg.textContent = '⏳ 저장 중...';
+  msg.style.color = '#94a3c0';
+
   db.collection('admin_settings').doc('oqupie').set({
-    url: url, id: id, pw: pw,
+    url: url || 'https://bizplay.oqupie.com/tickets/v5?selected_menu_code=TK11',
+    id: id,
+    pw: pw,
     updated_at: new Date().toISOString(),
     updated_by: CU ? CU.email : ''
   }, { merge: true })
     .then(function() {
-      msg.textContent = '✅ 저장되었습니다.';
+      msg.textContent = '✅ 저장되었습니다! GitHub Actions에서 Run workflow를 실행하면 티켓이 동기화됩니다.';
       msg.style.color = '#059669';
       logAdminAction('edit_oqupie_settings', { note: 'OQUPIE 로그인 정보 업데이트' });
     })
     .catch(function(e) {
-      msg.textContent = '❌ 저장 실패: ' + e.message;
+      console.error('OQUPIE 설정 저장 오류:', e);
+      if (e.code === 'permission-denied') {
+        msg.textContent = '❌ 권한 오류: Firebase 보안 규칙을 확인해주세요. (admin_settings 쓰기 허용 필요)';
+      } else {
+        msg.textContent = '❌ 저장 실패: ' + e.message;
+      }
       msg.style.color = '#ef4444';
     });
 }
