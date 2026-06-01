@@ -537,18 +537,32 @@ async function main() {
       });
     }
 
-    // ── Firestore 저장 ───────────────────────────────────────────
+    // ── Firestore 저장 (기존 문서 확인 후 변경분만 저장) ────────
     if (tickets.length > 0) {
-      console.log(`\nFirestore에 ${tickets.length}개 저장 중...`);
+      console.log(`\nFirestore 저장 중 (중복 체크)...`);
+
+      // 기존 저장된 티켓 ID 목록 조회 (1회 읽기)
+      const existingSnap = await db.collection('oqupie_tickets')
+        .select()  // ID만 가져와 읽기 비용 최소화
+        .get();
+      const existingIds = new Set(existingSnap.docs.map(d => d.id));
+
+      const newTickets     = tickets.filter(t => !existingIds.has(t.id));
+      const updatedTickets = tickets.filter(t => existingIds.has(t.id));
+
+      console.log(`  신규: ${newTickets.length}개 / 업데이트: ${updatedTickets.length}개`);
+
+      // 신규 티켓만 저장
+      const toSave = newTickets.length > 0 ? newTickets : tickets;
       const BATCH_SIZE = 499;
-      for (let i = 0; i < tickets.length; i += BATCH_SIZE) {
+      for (let i = 0; i < toSave.length; i += BATCH_SIZE) {
         const batch = db.batch();
-        tickets.slice(i, i + BATCH_SIZE).forEach(ticket => {
+        toSave.slice(i, i + BATCH_SIZE).forEach(ticket => {
           const docId = ticket.id || String(Date.now()) + '_' + Math.random().toString(36).slice(2);
           batch.set(db.collection('oqupie_tickets').doc(docId), ticket, { merge: true });
         });
         await batch.commit();
-        console.log(`  배치 저장 완료 (${Math.min(i + BATCH_SIZE, tickets.length)}/${tickets.length})`);
+        console.log(`  배치 저장 완료 (${Math.min(i + BATCH_SIZE, toSave.length)}/${toSave.length})`);
       }
     }
 
