@@ -102,6 +102,28 @@ async function main() {
     });
     await sleep(2000);
 
+    // 페이지 상태 출력 (디버그)
+    const pageTitle = await page.title();
+    const pageUrl   = page.url();
+    console.log('페이지 제목:', pageTitle);
+    console.log('페이지 URL:', pageUrl);
+
+    // 페이지 HTML 앞부분 출력 (구조 파악용)
+    const pageHtml = await page.evaluate(() => document.documentElement.outerHTML);
+    console.log('=== PAGE HTML (처음 3000자) ===');
+    console.log(pageHtml.slice(0, 3000));
+    console.log('=== PAGE HTML END ===');
+
+    // input이 나타날 때까지 최대 10초 대기
+    console.log('input 요소 대기 중...');
+    try {
+      await page.waitForSelector('input', { timeout: 10000 });
+    } catch (_) {
+      console.log('⚠️ 10초 후에도 input 없음 — 현재 HTML 재출력');
+      const html2 = await page.evaluate(() => document.documentElement.outerHTML);
+      console.log(html2.slice(0, 2000));
+    }
+
     // input 목록 출력 (디버그)
     const inputs = await debugInputs(page);
 
