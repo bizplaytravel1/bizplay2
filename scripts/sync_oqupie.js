@@ -233,11 +233,11 @@ async function main() {
     }
     console.log('✅ 로그인 성공');
 
-    // ── 티켓 목록 ────────────────────────────────────────────────
+    // ── 티켓 목록 + 강인혁 필터 ──────────────────────────────────
     console.log('티켓 목록 페이지로 이동...');
     await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-    // SPA 렌더링 대기 — 5자리 숫자(티켓번호) 패턴이 나타날 때까지
+    // SPA 렌더링 대기
     console.log('티켓 목록 렌더링 대기 중...');
     try {
       await page.waitForFunction(
@@ -248,7 +248,64 @@ async function main() {
     } catch (_) {
       console.log('⚠️ 15초 후에도 티켓 번호 없음 — 강제 진행');
     }
-    await sleep(2000);
+    await sleep(1500);
+
+    // ── 나의 서랍 > 강인혁 필터 클릭 ────────────────────────────
+    console.log('강인혁 필터 클릭 시도...');
+
+    // 사이드바가 완전히 로드될 때까지 대기
+    try {
+      await page.waitForFunction(
+        () => document.body.innerText.includes('강인혁'),
+        { timeout: 10000, polling: 500 }
+      );
+      console.log('✅ 강인혁 텍스트 감지됨');
+    } catch (_) {
+      console.log('⚠️ 강인혁 텍스트 미감지 — 강제 진행');
+    }
+
+    // 강인혁 요소 찾아서 클릭
+    const filterEl = await page.evaluateHandle(() => {
+      const walker = document.createTreeWalker(
+        document.body, NodeFilter.SHOW_TEXT, null, false
+      );
+      let node;
+      while ((node = walker.nextNode())) {
+        if (node.nodeValue && node.nodeValue.trim() === '강인혁') {
+          return node.parentElement;
+        }
+      }
+      return null;
+    });
+
+    const filterElProp = await filterEl.getProperty('tagName').catch(() => null);
+    if (filterElProp) {
+      // 요소 위치로 스크롤 후 클릭
+      await page.evaluate(el => {
+        el.scrollIntoView({ block: 'center' });
+      }, filterEl);
+      await sleep(500);
+
+      // dispatchEvent로 실제 클릭 이벤트 발생
+      await page.evaluate(el => {
+        el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        el.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true }));
+        el.dispatchEvent(new MouseEvent('click',     { bubbles: true }));
+        // 부모 요소도 클릭
+        if (el.parentElement) {
+          el.parentElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        }
+      }, filterEl);
+
+      console.log('✅ 강인혁 필터 클릭 완료');
+      await sleep(3000);
+
+      // 필터 적용 후 페이지 텍스트 변화 확인
+      const afterText = await page.evaluate(() => document.body.innerText.slice(0, 200));
+      console.log('필터 적용 후 페이지 일부:', afterText.replace(/\n/g, ' | '));
+    } else {
+      console.log('⚠️ 강인혁 필터 요소 없음 — 전체 티켓에서 강인혁 담당 필터링');
+    }
 
     // 무한스크롤 처리
     let prevHeight = 0;
@@ -260,74 +317,70 @@ async function main() {
       prevHeight = h;
     }
 
-    // ── 티켓 목록 추출 (OQUPIE 실제 DOM 구조 기반) ──────────────
+    // ── 티켓 목록 추출 (OQUPIE 실제 구조 기반) ──────────────────
+    // OQUPIE 행 구조: 고객명 → 이메일 → [제목] → 번호 → 날짜 순
     const ticketList = await page.evaluate(() => {
       const results = [];
+      const NAV_WORDS = new Set([
+        'Ticket','Chat','Customer','Knowledge','Gadget','Report',
+        'Community','Ticket UI','Low','Medium','High','All','ko','en',
+        'bizplay','Create new ticket','Bulk action','Assign','Reply',
+        'Spam','Delete','View','In Progress','Completed','Newly Received'
+      ]);
 
-      // OQUPIE는 각 티켓을 클릭 가능한 행/카드로 렌더링
-      // URL 패턴 /tickets/v5/{숫자} 로 링크를 찾음
-      const ticketLinks = Array.from(
-        document.querySelectorAll('a[href*="/tickets/"]')
-      ).filter(a => /\/tickets\/[^/]*\/\d+/.test(a.href) || /\/tickets\/v\d+\/\d+/.test(a.href) || /\/tickets\/\d+/.test(a.href));
+      // 방법 1: 티켓 번호를 포함한 DOM 요소 찾기
+      // 번호 형태: # 26552 또는 26552 단독
+      const allEls = Array.from(document.querySelectorAll('*'));
+      const seen   = new Set();
 
-      if (ticketLinks.length > 0) {
-        ticketLinks.forEach(a => {
-          const numMatch = a.href.match(/\/(\d{4,6})\/?(?:\?|$|\/)/);
-          if (!numMatch) return;
-          const num     = numMatch[1];
-          const rowEl   = a.closest('tr, li, [class*="row"], [class*="item"], [class*="card"]') || a;
-          const rowText = rowEl.innerText || a.innerText || '';
-          // 날짜 패턴 찾기
-          const dateMatch = rowText.match(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/);
-          // 제목: 첫 번째 긴 텍스트 줄 (이메일, 날짜, 짧은 단어 제외)
-          const lines = rowText.split('\n')
-            .map(l => l.trim())
-            .filter(l => l.length > 3
-              && !l.includes('@')
-              && !/^\d+$/.test(l)
-              && !/\d{4}-\d{2}-\d{2}/.test(l)
-              && !['Low','Medium','High','ko','en','bizplay','All'].includes(l)
-            );
-          const subject = lines[0] || '';
-          if (num && subject) {
-            results.push({
-              num:      '#' + num,
-              subject:  subject,
-              date_raw: dateMatch ? dateMatch[0] : '',
-              href:     a.href
-            });
-          }
-        });
-      }
+      allEls.forEach(el => {
+        if (el.children.length > 2) return;
+        const t = (el.innerText || '').trim();
+        // "# 26552" 또는 "26552" 형태
+        const numMatch = t.match(/^#?\s*(\d{4,6})$/);
+        if (!numMatch || seen.has(numMatch[1])) return;
+        const num = numMatch[1];
+        seen.add(num);
 
-      // fallback: 5자리 숫자 + 인근 텍스트로 추출
-      if (results.length === 0) {
-        const allEls = Array.from(document.querySelectorAll('*'));
-        const seen   = new Set();
-        allEls.forEach(el => {
-          if (el.children.length > 0) return;
-          const t = (el.innerText || '').trim();
-          if (/^\d{4,6}$/.test(t) && !seen.has(t)) {
-            seen.add(t);
-            const parent = el.closest('tr, li, [class*="row"], [class*="item"]') || el.parentElement;
-            const rowText = parent ? (parent.innerText || '') : '';
-            const lines   = rowText.split('\n').map(l => l.trim()).filter(l =>
-              l.length > 3 && !l.includes('@') && !/^\d+$/.test(l) && !/\d{4}-\d{2}-\d{2}/.test(l)
-            );
-            const subject  = lines[0] || '';
-            const dateMatch = rowText.match(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/);
-            const link      = parent ? parent.querySelector('a[href*="ticket"]') : null;
-            if (subject) {
-              results.push({
-                num:      '#' + t,
-                subject:  subject,
-                date_raw: dateMatch ? dateMatch[0] : '',
-                href:     link ? link.href : ''
-              });
-            }
-          }
-        });
-      }
+        // 부모 행 찾기 (최대 5단계 위)
+        let row = el;
+        for (let i = 0; i < 5; i++) {
+          if (!row.parentElement) break;
+          row = row.parentElement;
+          const h = row.getBoundingClientRect ? row.getBoundingClientRect().height : 0;
+          if (h > 30 && h < 200) break;
+        }
+
+        const rowText   = (row.innerText || '').trim();
+        const dateMatch = rowText.match(/\d{4}-\d{2}-\d{2}[\s ]+\d{2}:\d{2}/);
+        const link      = row.querySelector('a') || el.closest('a');
+
+        // 줄 분리 후 제목 후보 추출
+        // 규칙: 이메일(@) 포함 제외, 숫자만 제외, 날짜 형식 제외, NAV_WORDS 제외, 4자 이상
+        const lines = rowText.split(/\n|\r/)
+          .map(l => l.trim())
+          .filter(l =>
+            l.length >= 4
+            && !l.includes('@')
+            && !/^\d+$/.test(l)
+            && !/^\d{4}-\d{2}-\d{2}/.test(l)
+            && !NAV_WORDS.has(l)
+            && !/^[A-Z]{2}$/.test(l)        // 이니셜(JH, DK 등) 제외
+            && !/^(bzp|biz)/.test(l)         // 브랜드코드 제외
+          );
+
+        // 제목은 가장 긴 줄 (고객명보다 문의 제목이 더 길 가능성 높음)
+        const subject = lines.sort((a, b) => b.length - a.length)[0] || '';
+
+        if (subject) {
+          results.push({
+            num:      '#' + num,
+            subject:  subject,
+            date_raw: dateMatch ? dateMatch[0].trim() : '',
+            href:     link ? link.href : ''
+          });
+        }
+      });
 
       // 중복 제거
       const seen2 = new Set();
@@ -339,10 +392,6 @@ async function main() {
     });
 
     console.log(`티켓 ${ticketList.length}개 발견`);
-
-    if (ticketList.length === 0) {
-      console.log('⚠️ 티켓이 없거나 페이지 구조를 인식하지 못했습니다.');
-    }
 
     // ── 각 티켓 상세 ─────────────────────────────────────────────
     const tickets = [];
@@ -360,36 +409,88 @@ async function main() {
 
       if (tl.href && tl.href.startsWith('http')) {
         try {
-          await page.goto(tl.href, { waitUntil: 'networkidle2', timeout: 20000 });
-          await sleep(1200);
+          await page.goto(tl.href, { waitUntil: 'domcontentloaded', timeout: 20000 });
+
+          // SPA 렌더링 대기 — 실제 문의 내용(30자 이상 단락)이 나타날 때까지
+          try {
+            await page.waitForFunction(() => {
+              const NAV = new Set(['Ticket','Chat','Customer','Knowledge',
+                'Gadget','Report','Community','Ticket UI']);
+              const els = Array.from(document.querySelectorAll('p, div, span, td'));
+              return els.some(el => {
+                const t = (el.innerText || '').trim();
+                return t.length > 30
+                  && el.children.length < 4
+                  && !NAV.has(t)
+                  && !t.includes('Ticket UI')
+                  && !/^(Ticket|Chat|Customer|Knowledge)$/.test(t);
+              });
+            }, { timeout: 8000, polling: 500 });
+          } catch (_) {}
+          await sleep(1000);
 
           body = await page.evaluate(() => {
-            const selectors = [
+            const NAV_WORDS = new Set([
+              'Ticket','Chat','Customer','Knowledge','Gadget','Report',
+              'Community','Ticket UI','IH','All','Low','Medium','High'
+            ]);
+
+            // 1차: 메시지/본문 관련 class 직접 탐색
+            const msgSelectors = [
               '[class*="message-body"]', '[class*="messageBody"]',
               '[class*="ticket-body"]',  '[class*="ticketBody"]',
               '[class*="content-body"]', '[class*="first-message"]',
-              '[class*="description"]',  '.description',
-              'article', '[role="main"] p'
+              '[class*="mail-body"]',    '[class*="mailBody"]',
+              '[class*="msg-content"]',  '[class*="message-content"]',
+              '[class*="description"]',  'article'
             ];
-            for (const sel of selectors) {
+            for (const sel of msgSelectors) {
               const el = document.querySelector(sel);
-              if (el && el.innerText && el.innerText.trim().length > 10) {
-                return el.innerText.trim();
-              }
+              const t = el ? el.innerText.trim() : '';
+              if (t.length > 20 && !NAV_WORDS.has(t)) return t;
             }
-            const divs = Array.from(document.querySelectorAll('div, p'));
-            const cand = divs.find(d =>
-              d.innerText && d.innerText.trim().length > 50 && d.children.length < 5
-            );
-            return cand ? cand.innerText.trim() : '';
+
+            // 2차: 모든 텍스트 블록 중 네비게이션 제외, 가장 긴 것
+            const candidates = Array.from(document.querySelectorAll('p, div, td, span'))
+              .map(el => ({ el, t: (el.innerText || '').trim() }))
+              .filter(({ el, t }) =>
+                t.length > 30
+                && el.children.length < 6
+                && !NAV_WORDS.has(t)
+                && !t.includes('Ticket UI')
+                && !t.split('\n').every(line => NAV_WORDS.has(line.trim()))
+              )
+              .sort((a, b) => b.t.length - a.t.length);
+
+            return candidates[0] ? candidates[0].t : '';
           });
 
-          await page.goto(listUrl, { waitUntil: 'networkidle2', timeout: 20000 });
+          // 목록 복귀 (SPA이므로 history.back() 먼저 시도)
+          await page.goBack({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(async () => {
+            await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+          });
+          await sleep(1500);
+
+          // 강인혁 필터 재적용 (목록 복귀 후 필터가 초기화될 수 있음)
+          await page.evaluate(() => {
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+            let node;
+            while ((node = walker.nextNode())) {
+              if (node.nodeValue && node.nodeValue.trim() === '강인혁') {
+                const el = node.parentElement;
+                if (el) {
+                  el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                }
+                break;
+              }
+            }
+          });
           await sleep(1000);
+
         } catch (e) {
           console.warn(`  ⚠️ 상세 읽기 실패 (${tl.num}): ${e.message}`);
           try {
-            await page.goto(listUrl, { waitUntil: 'networkidle2', timeout: 20000 });
+            await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
             await sleep(800);
           } catch (_) {}
         }
