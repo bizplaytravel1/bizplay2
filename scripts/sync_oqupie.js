@@ -356,21 +356,33 @@ async function main() {
         const link      = row.querySelector('a') || el.closest('a');
 
         // 줄 분리 후 제목 후보 추출
-        // 규칙: 이메일(@) 포함 제외, 숫자만 제외, 날짜 형식 제외, NAV_WORDS 제외, 4자 이상
+        const MONTH_PAT  = /january|february|march|april|may|june|july|august|september|october|november|december/i;
+        const WEEKDAY_PAT = /^(su|mo|tu|we|th|fr|sa){3,}/i;  // sumotuwethfrsa 같은 패턴
         const lines = rowText.split(/\n|\r/)
           .map(l => l.trim())
           .filter(l =>
             l.length >= 4
+            && l.length <= 100               // 지나치게 긴 줄(UI 위젯) 제외
             && !l.includes('@')
             && !/^\d+$/.test(l)
             && !/^\d{4}-\d{2}-\d{2}/.test(l)
             && !NAV_WORDS.has(l)
-            && !/^[A-Z]{2}$/.test(l)        // 이니셜(JH, DK 등) 제외
-            && !/^(bzp|biz)/.test(l)         // 브랜드코드 제외
+            && !/^[A-Z]{2}$/.test(l)
+            && !/^(bzp|biz)/.test(l)
+            && !MONTH_PAT.test(l)            // 달력 월 이름 제외
+            && !WEEKDAY_PAT.test(l)          // 요일 약어 나열 제외
+            && !/^[<>]/.test(l)              // < > 로 시작하는 UI 텍스트 제외
           );
 
-        // 제목은 가장 긴 줄 (고객명보다 문의 제목이 더 길 가능성 높음)
-        const subject = lines.sort((a, b) => b.length - a.length)[0] || '';
+        // 이메일 다음 줄이 제목일 가능성이 높음 (OQUPIE 구조: 이름→이메일→제목→번호)
+        const emailIdx = rowText.split(/\n|\r/).findIndex(l => l.includes('@'));
+        const afterEmailLines = emailIdx >= 0
+          ? rowText.split(/\n|\r/).slice(emailIdx + 1).map(l => l.trim())
+              .filter(l => l.length >= 4 && !/^\d+$/.test(l) && !NAV_WORDS.has(l)
+                && !MONTH_PAT.test(l) && !WEEKDAY_PAT.test(l) && l.length <= 100)
+          : [];
+
+        const subject = (afterEmailLines[0] || lines.sort((a, b) => b.length - a.length)[0] || '');
 
         if (subject) {
           results.push({
@@ -430,35 +442,54 @@ async function main() {
           await sleep(1000);
 
           body = await page.evaluate(() => {
-            const NAV_WORDS = new Set([
+            // 본문으로 볼 수 없는 텍스트 패턴
+            const EXCLUDE_EXACT = new Set([
               'Ticket','Chat','Customer','Knowledge','Gadget','Report',
-              'Community','Ticket UI','IH','All','Low','Medium','High'
+              'Community','Ticket UI','IH','All','Low','Medium','High',
+              'Recently Used','Something went wrong.'
             ]);
+            const EXCLUDE_CONTAINS = [
+              'Something went wrong',
+              'OQUPIE will automatically',
+              'OQUPIE.COM',
+              'Recently Used',
+              'january february',
+              'sumotuwethfrsa'
+            ];
 
-            // 1차: 메시지/본문 관련 class 직접 탐색
+            function isBadText(t) {
+              if (!t) return true;
+              if (EXCLUDE_EXACT.has(t)) return true;
+              if (EXCLUDE_CONTAINS.some(s => t.includes(s))) return true;
+              // 달력/요일 UI 패턴
+              if (/january|february|march/i.test(t) && t.length > 50) return true;
+              return false;
+            }
+
+            // 1차: 메시지/본문 class 직접 탐색
             const msgSelectors = [
               '[class*="message-body"]', '[class*="messageBody"]',
               '[class*="ticket-body"]',  '[class*="ticketBody"]',
               '[class*="content-body"]', '[class*="first-message"]',
-              '[class*="mail-body"]',    '[class*="mailBody"]',
-              '[class*="msg-content"]',  '[class*="message-content"]',
-              '[class*="description"]',  'article'
+              '[class*="mail-body"]',    '[class*="msg-content"]',
+              '[class*="message-content"]', '[class*="description"]',
+              'article'
             ];
             for (const sel of msgSelectors) {
               const el = document.querySelector(sel);
               const t = el ? el.innerText.trim() : '';
-              if (t.length > 20 && !NAV_WORDS.has(t)) return t;
+              if (t.length > 20 && !isBadText(t)) return t;
             }
 
-            // 2차: 모든 텍스트 블록 중 네비게이션 제외, 가장 긴 것
-            const candidates = Array.from(document.querySelectorAll('p, div, td, span'))
+            // 2차: 텍스트 블록 중 실제 문의 내용 찾기 (20~2000자, 나쁜 텍스트 제외)
+            const candidates = Array.from(document.querySelectorAll('p, div, td'))
               .map(el => ({ el, t: (el.innerText || '').trim() }))
               .filter(({ el, t }) =>
-                t.length > 30
-                && el.children.length < 6
-                && !NAV_WORDS.has(t)
-                && !t.includes('Ticket UI')
-                && !t.split('\n').every(line => NAV_WORDS.has(line.trim()))
+                t.length >= 20
+                && t.length <= 2000
+                && el.children.length < 5
+                && !isBadText(t)
+                && !t.split('\n').every(line => EXCLUDE_EXACT.has(line.trim()))
               )
               .sort((a, b) => b.t.length - a.t.length);
 
