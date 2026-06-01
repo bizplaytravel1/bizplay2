@@ -3,8 +3,8 @@
  * GitHub Actions에서 실행 (환경변수: FIREBASE_SERVICE_ACCOUNT)
  */
 
-const puppeteer   = require('puppeteer');
-const admin       = require('firebase-admin');
+const puppeteer = require('puppeteer');
+const admin     = require('firebase-admin');
 
 // ── Firebase Admin 초기화 ──────────────────────────────────────────
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
@@ -28,13 +28,31 @@ function parseKrDate(str) {
   return new Date().toISOString();
 }
 
-async function waitFor(page, selector, timeout = 8000) {
+// 여러 selector 중 처음으로 찾은 요소 반환
+async function findEl(page, selectors, timeout = 10000) {
+  const sel = Array.isArray(selectors) ? selectors.join(', ') : selectors;
   try {
-    await page.waitForSelector(selector, { timeout });
-    return await page.$(selector);
+    await page.waitForSelector(sel, { timeout });
+    return await page.$(sel);
   } catch {
     return null;
   }
+}
+
+// 페이지의 모든 input 정보를 출력 (디버그용)
+async function debugInputs(page) {
+  const inputs = await page.evaluate(() => {
+    return Array.from(document.querySelectorAll('input')).map(el => ({
+      type:        el.type,
+      name:        el.name,
+      id:          el.id,
+      placeholder: el.placeholder,
+      className:   el.className.slice(0, 60)
+    }));
+  });
+  console.log('📋 페이지 input 목록:');
+  inputs.forEach((inp, i) => console.log(`  [${i}]`, JSON.stringify(inp)));
+  return inputs;
 }
 
 // ── 메인 ──────────────────────────────────────────────────────────
@@ -43,13 +61,13 @@ async function main() {
 
   const settingsSnap = await db.collection('admin_settings').doc('oqupie').get();
   if (!settingsSnap.exists) {
-    console.error('❌ admin_settings/oqupie 설정이 없습니다. 관리자 페이지 → OQUPIE 연동 설정에서 먼저 저장해주세요.');
+    console.error('❌ admin_settings/oqupie 설정이 없습니다.');
     process.exit(1);
   }
 
   const { id: oqupieId, pw: oqupiePw, url: ticketListUrl } = settingsSnap.data();
   if (!oqupieId || !oqupiePw) {
-    console.error('❌ 아이디 또는 비밀번호가 Firestore에 저장되어 있지 않습니다.');
+    console.error('❌ 아이디 또는 비밀번호가 설정되지 않았습니다.');
     process.exit(1);
   }
 
@@ -82,58 +100,116 @@ async function main() {
       waitUntil: 'networkidle2',
       timeout: 30000
     });
-    await sleep(1500);
+    await sleep(2000);
 
-    const emailSel = [
+    // input 목록 출력 (디버그)
+    const inputs = await debugInputs(page);
+
+    // 이메일 입력 — 다양한 selector 시도
+    let emailEl = null;
+
+    // 1차: 타입/속성 기반
+    emailEl = await findEl(page, [
       'input[type="email"]',
       'input[name="email"]',
       'input[id*="email"]',
       'input[placeholder*="이메일"]',
-      'input[placeholder*="Email"]'
-    ].join(', ');
+      'input[placeholder*="Email"]',
+      'input[placeholder*="email"]',
+      'input[type="text"][name*="id"]',
+      'input[type="text"][id*="id"]',
+      'input[type="text"][placeholder*="아이디"]',
+      'input[type="text"][placeholder*="ID"]'
+    ], 5000);
 
-    const emailEl = await waitFor(page, emailSel, 10000);
-    if (!emailEl) throw new Error('이메일 입력 필드를 찾을 수 없습니다.');
+    // 2차: 첫 번째 text/email input
+    if (!emailEl) {
+      console.log('⚠️ 일반 selector 실패 → 첫 번째 텍스트 input 시도');
+      const firstInput = inputs.find(inp =>
+        inp.type === 'email' || inp.type === 'text' || inp.type === ''
+      );
+      if (firstInput) {
+        const identifiers = [
+          firstInput.id   ? `#${firstInput.id}`        : null,
+          firstInput.name ? `input[name="${firstInput.name}"]` : null,
+          `input[type="${firstInput.type || 'text'}"]`
+        ].filter(Boolean);
+        emailEl = await findEl(page, identifiers, 3000);
+      }
+    }
+
+    if (!emailEl) {
+      // 3차: 그냥 모든 input 중 첫 번째
+      emailEl = await page.$('input');
+    }
+
+    if (!emailEl) {
+      throw new Error('이메일 입력 필드를 찾을 수 없습니다. 로그인 페이지 구조를 확인해주세요.');
+    }
+
     await emailEl.click({ clickCount: 3 });
     await emailEl.type(oqupieId, { delay: 60 });
+    console.log('✅ 이메일 입력 완료');
 
-    const pwEl = await waitFor(page, 'input[type="password"]', 5000);
+    // 비밀번호 입력
+    let pwEl = await findEl(page, ['input[type="password"]'], 5000);
+    if (!pwEl) {
+      // Tab 키로 다음 필드로 이동
+      await emailEl.press('Tab');
+      await sleep(500);
+      pwEl = await page.$('input[type="password"]');
+    }
     if (!pwEl) throw new Error('비밀번호 입력 필드를 찾을 수 없습니다.');
+
     await pwEl.click({ clickCount: 3 });
     await pwEl.type(oqupiePw, { delay: 60 });
+    console.log('✅ 비밀번호 입력 완료');
 
-    const loginBtn = await page.$('button[type="submit"], input[type="submit"], .login-btn');
+    // 로그인 버튼
+    const loginBtn = await page.$(
+      'button[type="submit"], input[type="submit"], ' +
+      'button.login-btn, button[class*="login"], ' +
+      'button[class*="submit"], [class*="login-btn"]'
+    );
     if (loginBtn) {
       await loginBtn.click();
+      console.log('✅ 로그인 버튼 클릭');
     } else {
       await pwEl.press('Enter');
+      console.log('✅ Enter 키로 로그인');
     }
 
     await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 }).catch(() => {});
     await sleep(2000);
 
-    if (page.url().includes('login')) {
-      throw new Error('로그인 실패: 아이디/비밀번호를 확인해주세요.');
+    const currentUrl = page.url();
+    console.log('현재 URL:', currentUrl);
+
+    if (currentUrl.includes('login')) {
+      throw new Error('로그인 실패: 아이디/비밀번호가 올바르지 않거나 로그인 페이지 구조가 변경되었습니다.');
     }
-    console.log('✅ 로그인 성공 →', page.url());
+    console.log('✅ 로그인 성공');
 
     // ── 티켓 목록 ────────────────────────────────────────────────
     console.log('티켓 목록 페이지로 이동...');
     await page.goto(listUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-    await sleep(2500);
+    await sleep(3000);
 
+    // 무한스크롤 처리
     let prevHeight = 0;
     for (let i = 0; i < 10; i++) {
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      await sleep(700);
+      await sleep(800);
       const h = await page.evaluate(() => document.body.scrollHeight);
       if (h === prevHeight) break;
       prevHeight = h;
     }
 
+    // ── 티켓 목록 추출 ──────────────────────────────────────────
     const ticketList = await page.evaluate(() => {
       const results = [];
 
+      // 방법 1: 테이블 행
       const rows = document.querySelectorAll(
         'table tbody tr, [class*="ticket-row"], [class*="ticketRow"]'
       );
@@ -156,11 +232,11 @@ async function main() {
         });
       }
 
+      // 방법 2: 카드형
       if (results.length === 0) {
-        const cards = document.querySelectorAll(
+        document.querySelectorAll(
           '[class*="ticket-item"], [class*="ticketItem"], [class*="ticket-card"]'
-        );
-        cards.forEach(card => {
+        ).forEach(card => {
           const allText  = card.innerText || '';
           const numMatch = allText.match(/#(\d+)/);
           if (!numMatch) return;
@@ -176,6 +252,7 @@ async function main() {
         });
       }
 
+      // 방법 3: 링크에서 #번호 추출
       if (results.length === 0) {
         Array.from(document.querySelectorAll('a[href*="ticket"]')).forEach(a => {
           const text     = a.innerText || '';
@@ -195,6 +272,10 @@ async function main() {
     });
 
     console.log(`티켓 ${ticketList.length}개 발견`);
+
+    if (ticketList.length === 0) {
+      console.log('⚠️ 티켓이 없거나 페이지 구조를 인식하지 못했습니다.');
+    }
 
     // ── 각 티켓 상세 ─────────────────────────────────────────────
     const tickets = [];
@@ -253,16 +334,18 @@ async function main() {
     }
 
     // ── Firestore 저장 ───────────────────────────────────────────
-    console.log(`\nFirestore에 ${tickets.length}개 저장 중...`);
-    const BATCH_SIZE = 499;
-    for (let i = 0; i < tickets.length; i += BATCH_SIZE) {
-      const batch = db.batch();
-      tickets.slice(i, i + BATCH_SIZE).forEach(ticket => {
-        const docId = ticket.id || String(Date.now()) + '_' + Math.random().toString(36).slice(2);
-        batch.set(db.collection('oqupie_tickets').doc(docId), ticket, { merge: true });
-      });
-      await batch.commit();
-      console.log(`  배치 저장 완료 (${Math.min(i + BATCH_SIZE, tickets.length)}/${tickets.length})`);
+    if (tickets.length > 0) {
+      console.log(`\nFirestore에 ${tickets.length}개 저장 중...`);
+      const BATCH_SIZE = 499;
+      for (let i = 0; i < tickets.length; i += BATCH_SIZE) {
+        const batch = db.batch();
+        tickets.slice(i, i + BATCH_SIZE).forEach(ticket => {
+          const docId = ticket.id || String(Date.now()) + '_' + Math.random().toString(36).slice(2);
+          batch.set(db.collection('oqupie_tickets').doc(docId), ticket, { merge: true });
+        });
+        await batch.commit();
+        console.log(`  배치 저장 완료 (${Math.min(i + BATCH_SIZE, tickets.length)}/${tickets.length})`);
+      }
     }
 
     await db.collection('admin_settings').doc('oqupie').update({
