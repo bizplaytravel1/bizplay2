@@ -81,6 +81,7 @@ async function main() {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
+      '--disable-blink-features=AutomationControlled',  // 봇 감지 우회
       '--window-size=1400,900'
     ]
   });
@@ -94,13 +95,33 @@ async function main() {
       'Chrome/124.0.0.0 Safari/537.36'
     );
 
+    // 봇 감지 우회 — navigator.webdriver 숨기기
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+      Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko', 'en-US'] });
+      window.chrome = { runtime: {} };
+    });
+
     // ── 로그인 ──────────────────────────────────────────────────
     console.log('로그인 페이지로 이동...');
-    await page.goto('https://bizplay.oqupie.com/login', {
-      waitUntil: 'networkidle2',
+    await page.goto('https://bizplay.oqupie.com/members/auth/login?next=/', {
+      waitUntil: 'domcontentloaded',
       timeout: 30000
     });
-    await sleep(2000);
+
+    // SPA가 React/Vue로 렌더링될 때까지 대기 (최대 15초)
+    console.log('페이지 렌더링 대기 중...');
+    try {
+      await page.waitForFunction(
+        () => document.querySelectorAll('input').length > 0,
+        { timeout: 15000, polling: 500 }
+      );
+      console.log('✅ input 요소 렌더링 확인');
+    } catch (_) {
+      console.log('⚠️ 15초 후에도 input 없음 — 강제 진행');
+    }
+    await sleep(1000);
 
     // 페이지 상태 출력 (디버그)
     const pageTitle = await page.title();
@@ -207,7 +228,7 @@ async function main() {
     const currentUrl = page.url();
     console.log('현재 URL:', currentUrl);
 
-    if (currentUrl.includes('login')) {
+    if (currentUrl.includes('/login') || currentUrl.includes('/auth/login')) {
       throw new Error('로그인 실패: 아이디/비밀번호가 올바르지 않거나 로그인 페이지 구조가 변경되었습니다.');
     }
     console.log('✅ 로그인 성공');
