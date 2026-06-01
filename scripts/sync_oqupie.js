@@ -235,8 +235,26 @@ async function main() {
 
     // ── 티켓 목록 ────────────────────────────────────────────────
     console.log('티켓 목록 페이지로 이동...');
-    await page.goto(listUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-    await sleep(3000);
+    await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+    // SPA 렌더링 대기 — #번호 패턴이 화면에 나타날 때까지
+    console.log('티켓 목록 렌더링 대기 중...');
+    try {
+      await page.waitForFunction(
+        () => document.body.innerText.includes('#'),
+        { timeout: 15000, polling: 800 }
+      );
+      console.log('✅ 티켓 목록 렌더링 확인');
+    } catch (_) {
+      console.log('⚠️ 15초 후에도 # 패턴 없음 — 강제 진행');
+    }
+    await sleep(2000);
+
+    // 현재 페이지 HTML 일부 출력 (디버그)
+    const listHtml = await page.evaluate(() => document.body.innerText.slice(0, 1000));
+    console.log('=== 티켓 목록 페이지 텍스트 (처음 1000자) ===');
+    console.log(listHtml);
+    console.log('=== END ===');
 
     // 무한스크롤 처리
     let prevHeight = 0;
