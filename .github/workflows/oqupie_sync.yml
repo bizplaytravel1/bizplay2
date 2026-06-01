@@ -8,35 +8,29 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Puppeteer 의존성
-        run: |
-          sudo apt-get install -y libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2t64
-
-      - name: package.json 생성
-        run: |
-          mkdir -p scripts
-          cat > scripts/package.json << 'EOF'
-          {
-            "name": "oqupie-sync",
-            "version": "1.0.0",
-            "dependencies": {
-              "puppeteer": "^21.11.0",
-              "firebase-admin": "^12.1.0"
-            }
-          }
-          EOF
+      - name: scripts 폴더 확인
+        run: mkdir -p scripts
 
       - name: 패키지 설치
-        run: cd scripts && npm install
+        working-directory: scripts
+        run: npm install
 
-      - name: 동기화 실행
+      - name: Puppeteer 브라우저 설치
+        working-directory: scripts
+        run: npx puppeteer browsers install chrome
+
+      - name: OQUPIE 동기화 실행
+        working-directory: scripts
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: cd scripts && node sync_oqupie.js
+        run: node sync_oqupie.js
