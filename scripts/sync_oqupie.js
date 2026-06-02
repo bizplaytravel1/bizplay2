@@ -457,33 +457,39 @@ async function main() {
           await sleep(1000);
 
           body = await page.evaluate(() => {
-            // UI 영어 레이블 제외 (사이드바 고객정보 폼)
+            // ── 추가정보 필드명 제외 목록 ─────────────────────────────
+            const ADDITIONAL_INFO_FIELDS = new Set([
+              // OQUPIE Additional information (13) 섹션 필드명
+              '근무지','사원번호','연락처','고객 ID','고객ID','휴대폰 번호','휴대폰번호',
+              '이용기관ID','이용기관 ID','사업자 번호','사업자번호','회사명','exp',
+              '고객 명','고객명','Oqupie SDK version','Oqupie SDK Version',
+              'User ID','UserID','User name','Username','Additional information',
+              // 사이드바/폼 레이블
+              'Brand','Name','Email','Phone','Rate','Channel','Status',
+              'Priority','Tag','Assignee','Group','User','Customer'
+            ]);
             const EXCLUDE_EXACT = new Set([
               'Ticket','Chat','Customer','Knowledge','Gadget','Report',
               'Community','Ticket UI','All','Low','Medium','High',
               'Recently Used','Something went wrong.','Search','Folder',
               'My response','기본 탬플릿','All Tickets','Create new ticket',
               'In Progress','Completed','Newly Received','Bulk action',
-              'Assign','Reply','Spam','Delete','View','비즈플레이',
-              // 사이드바 고객정보 폼 레이블
-              'Brand','Name','Email','Phone','UserID','Rate','User',
-              'Channel','Status','Priority','Tag','Assignee','Group'
+              'Assign','Reply','Spam','Delete','View','비즈플레이'
             ]);
             const EXCLUDE_CONTAINS = [
-              'Something went wrong',
-              'OQUPIE will automatically',
-              'OQUPIE.COM',
-              'Recently Used',
-              'january february',
-              'sumotuwethfrsa',
-              '비플식권_',
-              'My response'
+              'Something went wrong', 'OQUPIE will automatically',
+              'OQUPIE.COM', 'Recently Used', 'january february',
+              'sumotuwethfrsa', '비플식권_', 'My response'
             ];
-            // 사이드바 폼 레이블 패턴 (Brand\nName\nEmail... 형태)
-            const FORM_LABELS = ['Brand','Name','Email','Phone','UserID','Rate','Channel','Status'];
 
-            function hasKorean(t) {
-              return /[가-힣]/.test(t);  // 한글 포함 여부
+            function hasKorean(t) { return /[가-힣]/.test(t); }
+
+            // 텍스트가 추가정보 섹션 내용인지 확인
+            function isAdditionalInfoText(t) {
+              const lines = t.split('\n').map(l => l.trim()).filter(l => l);
+              const infoLines = lines.filter(l => ADDITIONAL_INFO_FIELDS.has(l));
+              // 줄의 30% 이상이 추가정보 필드명이면 제외
+              return lines.length > 0 && infoLines.length / lines.length >= 0.3;
             }
 
             function isBadText(t) {
@@ -491,21 +497,78 @@ async function main() {
               if (EXCLUDE_EXACT.has(t)) return true;
               if (EXCLUDE_CONTAINS.some(s => t.includes(s))) return true;
               if (/january|february|march/i.test(t) && t.length > 50) return true;
-              const lines = t.split('\n').map(l => l.trim()).filter(l => l);
-              // 줄의 50% 이상이 UI 레이블이면 제외
-              const badLines = lines.filter(l => EXCLUDE_EXACT.has(l) || FORM_LABELS.includes(l));
-              if (lines.length > 0 && badLines.length / lines.length > 0.4) return true;
+              if (isAdditionalInfoText(t)) return true;
               return false;
             }
 
-            // ── 1차: 한글 포함 메시지 class 탐색 ────────────────
+            // ── 1차: "최초문의" 마커 탐색 — 가장 신뢰도 높은 방법 ────
+            // "최초문의" 텍스트를 포함한 요소를 찾고, 그 조상 컨테이너에서
+            // "추가 정보" 섹션 이전의 텍스트 블록을 추출
+            const allNodes = Array.from(document.querySelectorAll('*'));
+
+            // "최초문의" 마커 요소 찾기
+            const marker = allNodes.find(el => {
+              const t = (el.innerText || '').trim();
+              return t === '최초문의' || t.endsWith('최초문의');
+            });
+
+            if (marker) {
+              // 마커의 부모 섹션(메시지 카드) 찾기
+              let section = marker;
+              for (let i = 0; i < 8; i++) {
+                if (!section.parentElement) break;
+                section = section.parentElement;
+                const rect = section.getBoundingClientRect();
+                if (rect.width > 200 && rect.height > 60) break;
+              }
+
+              // 해당 섹션 내에서 추가정보 이전 텍스트 추출
+              // "추가 정보" 또는 "Additional information" 이후 내용 제거
+              let rawText = (section.innerText || '').trim();
+
+              // 최초문의 이후 내용 구분자 — 해당 위치 이후 텍스트 제거
+              // (추가정보 섹션, 답변 메시지 등)
+              const cutSeparators = [
+                '추가 정보', 'Additional information', '추가정보',
+                // 답변/회신 구분자
+                '\n답변\n', '\n답장\n', '\n회신\n',
+                '\nRe:', '\nRE:',
+                // 타임스탬프가 붙은 답변 구분 패턴은 아래 정규식으로 처리
+              ];
+              for (const sep of cutSeparators) {
+                const idx = rawText.indexOf(sep);
+                if (idx > 20) {
+                  rawText = rawText.slice(0, idx).trim();
+                  break;
+                }
+              }
+              // 정규식으로 "날짜 + 답변/회신" 패턴 이후 제거
+              // 예: "2026-06-01 13:52\n답변" 형태
+              rawText = rawText.replace(/\d{4}-\d{2}-\d{2}[\s\S]{0,30}?(답변|답장|회신|Reply|reply)[\s\S]*/m, '').trim();
+
+              // "최초문의" 헤더 줄 제거 (발신자 이름, 날짜, "최초문의" 텍스트 포함 줄)
+              const lines = rawText.split('\n').map(l => l.trim()).filter(l => l);
+              // 앞 1~3줄이 헤더인 경우 건너뜀 (짧은 줄 + "최초문의" 포함)
+              let startIdx = 0;
+              for (let i = 0; i < Math.min(3, lines.length); i++) {
+                if (lines[i].includes('최초문의') || lines[i].length < 30) {
+                  startIdx = i + 1;
+                } else break;
+              }
+              const bodyLines = lines.slice(startIdx).filter(l =>
+                !ADDITIONAL_INFO_FIELDS.has(l) && !EXCLUDE_EXACT.has(l)
+              );
+              const extracted = bodyLines.join('\n').trim();
+              if (extracted.length >= 15 && hasKorean(extracted)) return extracted;
+            }
+
+            // ── 2차: CSS class 기반 메시지 탐색 ─────────────────────
             const msgSelectors = [
               '[class*="message-body"]', '[class*="messageBody"]',
               '[class*="ticket-body"]',  '[class*="ticketBody"]',
               '[class*="content-body"]', '[class*="first-message"]',
               '[class*="mail-body"]',    '[class*="msg-content"]',
-              '[class*="message-content"]', '[class*="description"]',
-              'article'
+              '[class*="message-content"]'
             ];
             for (const sel of msgSelectors) {
               const el = document.querySelector(sel);
@@ -513,31 +576,13 @@ async function main() {
               if (!isBadText(t) && hasKorean(t)) return t;
             }
 
-            // ── 2차: 한글 포함 + 실제 문의처럼 보이는 텍스트 우선 ──
-            // "최초문의" 텍스트 근처 요소 탐색
-            const allEls = Array.from(document.querySelectorAll('*'));
-            const firstMsgMarker = allEls.find(el =>
-              (el.innerText || '').trim() === '최초문의'
-            );
-            if (firstMsgMarker) {
-              // 마커 이후 형제/부모 요소에서 본문 탐색
-              let cur = firstMsgMarker;
-              for (let i = 0; i < 10; i++) {
-                cur = cur.nextElementSibling || cur.parentElement;
-                if (!cur) break;
-                const t = (cur.innerText || '').trim();
-                if (t.length >= 20 && hasKorean(t) && !isBadText(t)) return t;
-              }
-            }
-
-            // ── 3차: 한글 포함 텍스트 블록 중 가장 긴 것 ───────────
-            const candidates = Array.from(document.querySelectorAll('p, div, td, section, span'))
+            // ── 3차: 한글 포함 텍스트 중 추가정보 제외한 가장 긴 것 ──
+            const candidates = Array.from(document.querySelectorAll('p, div, td'))
               .map(el => ({ el, t: (el.innerText || '').trim() }))
               .filter(({ el, t }) =>
-                t.length >= 20
-                && t.length <= 2000
-                && el.children.length < 6
-                && hasKorean(t)          // 반드시 한글 포함
+                t.length >= 15 && t.length <= 1500
+                && el.children.length < 5
+                && hasKorean(t)
                 && !isBadText(t)
               )
               .sort((a, b) => b.t.length - a.t.length);
