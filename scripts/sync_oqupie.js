@@ -237,31 +237,39 @@ async function main() {
     console.log('티켓 목록 페이지로 이동...');
     await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-    // SPA 렌더링 대기
+    // SPA 렌더링 대기 (최대 40초)
     console.log('티켓 목록 렌더링 대기 중...');
     try {
       await page.waitForFunction(
         () => /\b\d{4,6}\b/.test(document.body.innerText),
-        { timeout: 15000, polling: 800 }
+        { timeout: 40000, polling: 800 }
       );
       console.log('✅ 티켓 목록 렌더링 확인');
     } catch (_) {
-      console.log('⚠️ 15초 후에도 티켓 번호 없음 — 강제 진행');
+      console.log('⚠️ 40초 후에도 티켓 번호 없음 — 페이지 재시도');
+      // 페이지 재로드 시도
+      await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await sleep(5000);
+      const bodyText = await page.evaluate(() => document.body.innerText);
+      console.log('재시도 후 페이지 텍스트 일부:', bodyText.slice(0, 200).replace(/\n/g, ' | '));
     }
-    await sleep(1500);
+    await sleep(2000);
 
     // ── 나의 서랍 > 강인혁 필터 클릭 ────────────────────────────
     console.log('강인혁 필터 클릭 시도...');
 
-    // 사이드바가 완전히 로드될 때까지 대기
+    // 사이드바가 완전히 로드될 때까지 대기 (최대 20초)
     try {
       await page.waitForFunction(
         () => document.body.innerText.includes('강인혁'),
-        { timeout: 10000, polling: 500 }
+        { timeout: 20000, polling: 500 }
       );
       console.log('✅ 강인혁 텍스트 감지됨');
     } catch (_) {
-      console.log('⚠️ 강인혁 텍스트 미감지 — 강제 진행');
+      console.log('⚠️ 강인혁 텍스트 미감지 — 사이드바 로딩 추가 대기');
+      await sleep(5000);
+      const hasSidebar = await page.evaluate(() => document.body.innerText.includes('강인혁'));
+      console.log('추가 대기 후 강인혁 감지:', hasSidebar);
     }
 
     // 강인혁 요소 찾아서 클릭
