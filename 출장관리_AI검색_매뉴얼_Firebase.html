@@ -4781,8 +4781,59 @@ function _oqRender(data) {
 }
 
 /* ── KB 스코어링 ─────────────────────────────────────────────────── */
+/* ── OQUPIE body 클라이언트 사이드 정제 ──────────────────────────── */
+function _oqCleanBody(raw) {
+  if (!raw) return '';
+  var text = raw;
+
+  // 이메일 스레드/서명 시작 지점에서 자르기
+  var cutAt = [
+    'From:', 'Sent:', '보낸 사람:', '받는 사람:',
+    'T +82', 'M +82', 'F +82',
+    'www.hyundai.com', 'www.kia.com', 'Hyundai Motor', 'Kia Corp',
+    '주의 : 이 메일은', 'CAUTION : This email',
+    '주의: 이 메일', 'CAUTION: This email',
+    'Attached file', '첨부 파일',
+  ];
+  for (var i = 0; i < cutAt.length; i++) {
+    var idx = text.indexOf(cutAt[i]);
+    if (idx >= 0) text = text.slice(0, idx);
+  }
+
+  // 이메일 서명 ("감사합니다." 이후 이름+부서 패턴)
+  text = text.replace(/\n감사합니다\.?\n[\s\S]*/m, '').trim();
+  text = text.replace(/\n(Thank you|Best regards|Regards|Sincerely)[\s\S]*/im, '').trim();
+  // 타임라인/이벤트 패턴
+  text = text.replace(/\n\d{2}:\d{2}\s+(Ticket|Reply|Forward|Assign)[\s\S]*/m, '').trim();
+  text = text.replace(/\n\d{4}-\d{2}-\d{2}\n\d{2}:\d{2}[\s\S]*/m, '').trim();
+  text = text.replace(/\n.+? - Ticket [\s\S]*/m, '').trim();
+  text = text.replace(/\n[A-Z]{2}\n[\s\S]*/m, '').trim(); // 이니셜(UL, JH...)
+
+  // 줄 단위 필터
+  var skipLines = new Set([
+    'General','Follow-up','First inquiry','최초문의',
+    'Forward','Translate','Pro Agent','Agent',
+    'Additional information','추가 정보'
+  ]);
+  var lines = text.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l; });
+  var kept = lines.filter(function(l) {
+    if (skipLines.has(l)) return false;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(l)) return false;
+    if (/^\d{2}:\d{2}$/.test(l)) return false;
+    if (/^\|\s*\d{2}:\d{2}/.test(l)) return false;
+    if (/^[A-Z]{2}$/.test(l)) return false;
+    if (/^\+82/.test(l)) return false;
+    if (l.includes('@') && !l.includes(' ')) return false; // 이메일 단독
+    if (/\d{2}:\d{2}\s+(Ticket|Reply|Assign)/.test(l)) return false;
+    if (/.+\s*-\s*(Ticket|Reply|Forward)/.test(l)) return false;
+    return true;
+  });
+  return kept.join('\n').trim();
+}
+
 function _oqScore(ticket) {
-  var text   = (ticket.subject||'') + '\n' + (ticket.body||'');
+  var cleanedBody = _oqCleanBody(ticket.body || '');
+  var text   = (ticket.subject||'') + '\n' + cleanedBody;
   var qn     = norm(text);
   var tokens = tokenize(text);
   var scored = [];
@@ -4865,8 +4916,11 @@ async function oqGenGroq(idx, e) {
   var btn = document.getElementById('oq-gbtn-'+idx);
   if (btn) { btn.textContent = '⏳ 생성 중...'; btn.disabled = true; }
 
-  var top     = _oqScore(ticket);
-  var inquiry = (ticket.subject||'') + '\n' + (ticket.body||'');
+  var top          = _oqScore(ticket);
+  var cleanedBody  = _oqCleanBody(ticket.body || '');
+  // 제목 + 정제된 본문으로 문의 구성 (이메일 서명/스레드 제외)
+  var inquiry = '문의 제목: ' + (ticket.subject || '') +
+                (cleanedBody ? '\n\n문의 내용:\n' + cleanedBody : '');
   // 상위 5개 KB 항목을 전체 내용으로 컨텍스트 구성
   var ctx = top.slice(0,5).map(function(x,i){
     var it = x.item;
