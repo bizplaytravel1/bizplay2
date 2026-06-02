@@ -77,11 +77,29 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
 .chip{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s}
 .chip:hover{border-color:var(--accent2);color:var(--accent2)}
-.ai-box{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:18px 22px;margin-bottom:22px;display:none}
-.ai-box.on{display:block;animation:fadeIn .3s ease}
-.ai-hdr{display:flex;align-items:center;gap:8px;margin-bottom:12px}
-.ai-badge{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:.05em}
-.ai-sub{font-size:13px;color:var(--text2)}.ai-text{font-size:14px;line-height:1.8;color:var(--text);white-space:pre-wrap}
+/* ── 채팅형 AI 검색 UI ── */
+.chat-wrap{display:none;flex-direction:column;gap:16px;margin-bottom:16px;animation:fadeIn .3s ease}
+.chat-wrap.on{display:flex}
+.chat-bubble{background:#f1f5f9;border-radius:16px 16px 4px 16px;padding:14px 18px;font-size:14px;line-height:1.75;color:var(--text);max-width:88%;align-self:flex-end;box-shadow:0 1px 3px rgba(0,0,0,.06);white-space:pre-wrap;word-break:break-word}
+.chat-answer{background:var(--surface);border:1px solid var(--border);border-radius:4px 16px 16px 16px;padding:20px 24px;font-size:14px;line-height:1.85;color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.chat-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 4px 4px;flex-wrap:wrap}
+.chat-sub{font-size:11px;color:var(--text3);flex:1}
+.chat-actions{display:flex;align-items:center;gap:8px}
+.src-btn{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12px;color:var(--text2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.src-btn:hover{border-color:var(--accent);color:var(--accent)}
+.src-panel{display:none;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-top:6px}
+.src-panel.open{display:block;animation:fadeIn .2s ease}
+/* 관련 이미지 패널 */
+.chat-img-panel{margin-top:14px;padding-top:14px;border-top:1px dashed var(--border)}
+.chat-imgs-label{font-size:11px;color:var(--text3);font-weight:700;margin-bottom:10px;letter-spacing:.05em;text-transform:uppercase}
+.chat-imgs-grid{display:flex;gap:10px;flex-wrap:wrap}
+.chat-img-thumb{background:var(--surface2);border:1px solid var(--border);border-radius:10px;overflow:hidden;cursor:pointer;transition:all .15s;max-width:160px}
+.chat-img-thumb:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(37,99,235,.12)}
+.chat-img-thumb img{width:100%;max-height:110px;object-fit:cover;display:block}
+.chat-img-cap{font-size:11px;color:var(--text2);padding:5px 8px;line-height:1.4;word-break:break-all}
+/* 기존 ai-box 숨김 (채팅형으로 대체) */
+.ai-box{display:none!important}
+.ai-loading{display:flex;align-items:center;gap:10px;color:var(--text2);font-size:14px}
 .ai-loading{display:flex;align-items:center;gap:10px;color:var(--text2);font-size:14px}
 .spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
 .res-hdr{display:none;justify-content:space-between;align-items:center;margin-bottom:14px}
@@ -138,6 +156,42 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
 mark{background:rgba(79,142,247,.25);color:var(--accent);border-radius:3px;padding:0 2px}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── AI 검색 업그레이드: 마크다운 렌더링용 ── */
+.ai-content{font-size:14.5px;line-height:1.85;color:var(--text)}
+.ai-content strong{color:var(--accent);font-weight:700}
+.ai-content h3{color:var(--accent);font-size:14px;margin-top:18px;margin-bottom:8px}
+.ai-content p{margin:8px 0 12px}
+.ai-content ul,.ai-content ol{margin:8px 0 16px;padding-left:22px}
+.ai-content li{margin-bottom:4px}
+.ai-content table{border-collapse:collapse;margin:12px 0 18px;width:100%;font-size:13.5px}
+.ai-content th,.ai-content td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+.ai-content th{background:var(--surface2);font-weight:600}
+.ai-content code{background:var(--surface2);padding:1px 6px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:13px}
+/* 출처 섹션 */
+.sources-section{margin-top:20px;padding-top:20px;border-top:1px dashed var(--border)}
+.sources-label{font-size:12px;color:var(--text3);font-weight:600;margin-bottom:10px;letter-spacing:.05em;text-transform:uppercase}
+.source-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:13px;cursor:pointer;transition:all .15s}
+.source-card:hover{border-color:var(--accent);background:#fff}
+.source-card-hdr{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.source-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--accent);color:#fff}
+.source-tag.tag-qa{background:var(--accent2)}
+.source-tag.tag-manual{background:var(--accent)}
+.source-tag.tag-rule{background:#7c3aed}
+.source-tag.tag-route{background:#0891b2}
+.source-score{margin-left:auto;font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace}
+.source-title{font-weight:500;color:var(--text);font-size:13px}
+.source-body{font-size:12px;color:var(--text2);margin-top:6px;display:none;white-space:pre-wrap;padding:8px;background:var(--surface);border-radius:6px;max-height:200px;overflow-y:auto}
+.source-card.open .source-body{display:block}
+/* AI 헤더 복사 버튼 (업그레이드) */
+.ai-copy-btn{background:var(--surface2);color:var(--text2);border:1px solid var(--border);cursor:pointer;padding:6px 12px;border-radius:6px;font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap}
+.ai-copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+.ai-copy-btn.copied{background:#dcfce7;color:#15803d;border-color:#86efac}
+/* 상태 배지 */
+.status-badge{font-size:11px;font-family:'IBM Plex Mono',monospace;padding:4px 10px;border-radius:20px;font-weight:600;white-space:nowrap}
+.status-ok{background:rgba(5,150,105,.12);color:#059669;border:1px solid rgba(5,150,105,.3)}
+.status-warn{background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)}
+.status-err{background:rgba(220,38,38,.12);color:#dc2626;border:1px solid rgba(220,38,38,.3)}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 @media(max-width:600px){.main,.cat-page{padding:18px 14px 60px}header{padding:12px 14px}.hdr-right{display:none}}
 
@@ -727,12 +781,31 @@ mark{background:rgba(79,142,247,.25);color:var(--accent);border-radius:3px;paddi
     <span class="chip" onclick="quickSearch('하이패스 모듈 설치 오류')">하이패스 모듈 설치 오류</span>
     <span class="chip" onclick="quickSearch('스크래핑 모듈 설치')">스크래핑 모듈 설치</span>
   </div>
-  <div class="ai-box" id="aiBox">
-    <div class="ai-hdr">
-      <span class="ai-badge">AI 종합 답변</span>
-      <span class="ai-sub">검색 결과를 바탕으로 생성된 답변</span>
+  <!-- 채팅형 AI 답변 영역 -->
+  <div class="chat-wrap" id="chatWrap">
+    <!-- 질문 버블 -->
+    <div class="chat-bubble" id="chatBubble"></div>
+    <!-- AI 답변 -->
+    <div class="chat-answer" id="aiText"></div>
+    <!-- 하단: 정보 + 복사·소스 버튼 -->
+    <div class="chat-footer">
+      <span class="chat-sub" id="aiSub"></span>
+      <div class="chat-actions">
+        <button class="src-btn" id="srcBtn" onclick="toggleSrcPanel()" style="display:none">📎 소스 <span id="srcCount">0</span>개</button>
+        <button class="ai-copy-btn" id="copyBtn" type="button" onclick="copyAnswer()" style="display:none">
+          <span id="copyBtnIcon">📋</span><span id="copyBtnText">복사</span>
+        </button>
+      </div>
     </div>
-    <div id="aiText" class="ai-text"></div>
+    <!-- 소스 패널 (접고 펼치기) -->
+    <div class="src-panel" id="srcPanel">
+      <div class="sources-label">📎 참고 자료</div>
+      <div id="sourcesList"></div>
+    </div>
+  </div>
+  <!-- 기존 ai-box (호환용 - 숨김) -->
+  <div class="ai-box" id="aiBox" style="display:none">
+    <div id="sourcesSection" style="display:none"><div id="_unused_sourcesList"></div></div>
   </div>
   <div class="res-hdr" id="resHdr">
     <div class="res-count">검색 결과: <strong id="resCnt">0</strong>건</div>
@@ -1836,6 +1909,22 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var db = firebase.firestore();
 
+// ── triplus-ai-821a7 (AI 검색용 두 번째 Firebase 앱) ────────────
+var searchConfig = {
+  apiKey: "AIzaSyDsIgOwLurG64hmWgmksdrWyfxrsCIK_hA",
+  authDomain: "triplus-ai-821a7.firebaseapp.com",
+  projectId: "triplus-ai-821a7",
+  storageBucket: "triplus-ai-821a7.firebasestorage.app",
+  messagingSenderId: "816305774166",
+  appId: "1:816305774166:web:2de540a4375dd232f525f7"
+};
+var searchApp = firebase.initializeApp(searchConfig, 'triplus-search');
+var searchDb = firebase.firestore(searchApp);
+
+// ── AI 검색 전역 변수 ─────────────────────────────────────────────
+var CHUNKS = [], EMBEDDINGS = {}, GEMINI_KEY = "", GROQ_KEY = "", HAS_EMBEDDINGS = false;
+var _lastAnswer = "";
+
 // ── 접속/검색 로그 기록 ──────────────────────────────────────────
 function logAccess(type, extra) {
   try {
@@ -2195,6 +2284,509 @@ function renderOverseas() {
 }
 
 
+// ====================================================
+// initSearch: triplus-ai-821a7 청크 로드 (7일 캐시)
+// ====================================================
+var SYSTEM_PROMPT = `당신은 현대자동차 트리플러스(TRIP+) 출장관리 Q&A 도우미입니다. 제공된 자료만 근거로 답변하며, 없는 내용은 추측하지 마세요.
+
+⚠️ 언어 규칙:
+- 반드시 한국어로만 답변
+- 외국어 단어 사용 금지 (다만, 하지만, 또한 등 한국어 사용)
+
+⚠️ 형식 규칙 (절대 준수):
+- HTML 태그 절대 사용 금지
+- 표는 반드시 markdown 형식만 사용: | 컬럼1 | 컬럼2 | 형태
+- 목록은 반드시 markdown 형식만 사용: - 항목 또는 1. 항목
+- 마크다운 헤더(##, ###) 사용 금지 → **굵은 글씨**로 섹션 제목 표현
+
+🚫 절대 금지 - HTML 태그 출력 (가장 중요):
+- 어떤 경우에도 다음 태그 출력 금지: <ul>, <li>, <ol>, <table>, <thead>, <tbody>, <tr>, <td>, <th>, <strong>, <b>, <em>, <i>, <p>, <br>, <div>, <span>, <h1>~<h6>
+- 섹션 헤더는 반드시 markdown으로 굵게 처리:
+  - 잘못된 예: 지원 기준\n<ul><li>...</li></ul>
+  - 올바른 예: **지원 기준**\n- ...
+- 표는 반드시 markdown 파이프(|) 형식:
+  - 잘못된 예: <table><tr><th>구분</th>...</tr></table>
+  - 올바른 예: | 구분 | 값 |\n| --- | --- |\n| ... | ... |
+- 모든 답변은 100% markdown만 사용. HTML 한 태그라도 섞이면 화면이 깨짐.
+
+🚫 절대 금지 - 조항 번호 인용:
+- "제○조", "제○장", "○항", "○호" 등 조항/장/항/호 번호 인용 절대 금지
+- 본문에서도 "제8조에 따르면", "제13조 기준" 같은 표현 사용 금지
+- 출처(📎)에도 조항 번호 표시 금지 → "📎 출장규정집" 처럼 자료명만
+- 자료가 "제8조 ..." 같이 시작해도 답변에서는 조항 번호를 배제하고 내용만 풀어쓸 것
+
+📋 답변 작성 핵심 원칙:
+
+1. 결론을 한 문장으로 먼저 (1-2줄)
+2. 그 뒤에 필요한 섹션을 **굵은 헤더 + 불릿** 패턴으로 정리
+3. 불릿은 반드시 "**라벨**: 설명." 형식 (라벨 굵게, 콜론, 한 문장 설명, 마침표로 종결)
+4. 비교 가능한 정보는 반드시 markdown 표로 (구분 / 케이스 컬럼)
+5. 예외/주의점은 **유의사항** 섹션에 별도 정리 (마지막 섹션 또는 마지막 불릿)
+6. 인사말, 사과, "도움이 되셨길 바랍니다" 류 모두 제외
+
+💡 핵심: 질문이 단순하면 답변도 단순하게! 모든 답변에 모든 섹션을 강제로 넣지 말 것.
+
+업무 외 질문 (잡담, 창작):
+"현대자동차 트리플러스(TRIP+) 출장관리 Q&A 도우미입니다. 출장 규정, 정산 방법, 시스템 사용법에 대해 문의해주세요." 한 줄로만.`;
+
+async function initSearch() {
+  var META_CACHE_KEY = "triplus_ai_chunks_meta";
+  var EMB_CACHE_KEY  = "triplus_ai_chunks_emb";
+  var CACHE_TIME_KEY = "triplus_ai_cache_time";
+  var CACHE_COUNT_KEY = "triplus_ai_cache_count";
+  var CACHE_MAX_AGE  = 7 * 24 * 60 * 60 * 1000; // 7일
+
+  try {
+    // 1. config에서 API 키 로드
+    var configDoc = await searchDb.collection("config").doc("public").get();
+    if (configDoc.exists) {
+      GEMINI_KEY = configDoc.data().gemini_api_key || "";
+      GROQ_KEY   = configDoc.data().groq_api_key   || "";
+    }
+    // Groq 키 fallback: localStorage
+    if (!GROQ_KEY) {
+      GROQ_KEY = localStorage.getItem("oq_groq_key") || "";
+    }
+
+    // 2. 캐시 확인
+    var cachedMeta = localStorage.getItem(META_CACHE_KEY);
+    var cacheTime  = parseInt(localStorage.getItem(CACHE_TIME_KEY) || "0");
+    var cacheAge   = Date.now() - cacheTime;
+    var isValid    = cachedMeta && cacheAge < CACHE_MAX_AGE;
+
+    if (isValid) {
+      try {
+        CHUNKS = JSON.parse(cachedMeta);
+        try {
+          var cachedEmb = localStorage.getItem(EMB_CACHE_KEY);
+          EMBEDDINGS = cachedEmb ? JSON.parse(cachedEmb) : {};
+        } catch(e) { EMBEDDINGS = {}; }
+        HAS_EMBEDDINGS = Object.keys(EMBEDDINGS).length > 0;
+        console.log("[Search] 캐시 사용: " + CHUNKS.length + "개 청크, 임베딩: " + HAS_EMBEDDINGS);
+        return;
+      } catch(e) {
+        console.warn("[Search] 캐시 파싱 실패, 새로 로드:", e);
+      }
+    }
+
+    // 3. Firestore에서 청크 로드
+    console.log("[Search] Firestore chunks 로드 중...");
+    var snap = await searchDb.collection("chunks").get();
+    CHUNKS = [];
+    EMBEDDINGS = {};
+    snap.docs.forEach(function(doc) {
+      var d = doc.data();
+      CHUNKS.push({
+        id: doc.id,
+        source: d.source || "",
+        category: d.category || "",
+        title: d.title || "",
+        content: d.content || "",
+        search_text: d.search_text || ""
+      });
+      if (d.embedding && Array.isArray(d.embedding)) {
+        EMBEDDINGS[doc.id] = d.embedding;
+      }
+    });
+    HAS_EMBEDDINGS = Object.keys(EMBEDDINGS).length > 0;
+
+    // 4. 캐시 저장
+    try {
+      var metaJson = JSON.stringify(CHUNKS);
+      localStorage.setItem(META_CACHE_KEY, metaJson);
+      localStorage.setItem(CACHE_TIME_KEY, String(Date.now()));
+      localStorage.setItem(CACHE_COUNT_KEY, String(CHUNKS.length));
+      if (HAS_EMBEDDINGS) {
+        try { localStorage.setItem(EMB_CACHE_KEY, JSON.stringify(EMBEDDINGS)); } catch(e) { console.warn("[Search] 임베딩 캐시 저장 실패:", e.message); }
+      }
+    } catch(e) { console.warn("[Search] 메타 캐시 저장 실패:", e.message); }
+
+    console.log("[Search] 준비 완료: " + CHUNKS.length + "개 청크, 임베딩: " + HAS_EMBEDDINGS);
+  } catch(e) {
+    console.warn("[Search] initSearch 실패:", e.message);
+  }
+}
+
+// ── 의미 검색 ──────────────────────────────────────────────────────
+async function searchSemantic(query, topK) {
+  var queryEmb = await embedQuery(query);
+  var scored = [];
+  for (var i = 0; i < CHUNKS.length; i++) {
+    var chunk = CHUNKS[i];
+    var emb = EMBEDDINGS[chunk.id];
+    if (!emb) continue;
+    scored.push({ chunk: chunk, score: cosineSim(queryEmb, emb) });
+  }
+  scored.sort(function(a, b) { return b.score - a.score; });
+  return scored.slice(0, topK);
+}
+
+async function embedQuery(text) {
+  if (!GEMINI_KEY) throw new Error("Gemini API 키 없음");
+  var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=" + GEMINI_KEY;
+  var res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "models/gemini-embedding-001",
+      content: { parts: [{ text: text }] },
+      taskType: "RETRIEVAL_QUERY"
+    })
+  });
+  if (!res.ok) {
+    var err = await res.text();
+    throw new Error("임베딩 오류 (" + res.status + "): " + err.slice(0, 100));
+  }
+  var data = await res.json();
+  return data.embedding.values;
+}
+
+function cosineSim(a, b) {
+  var dot = 0, na = 0, nb = 0;
+  for (var i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na  += a[i] * a[i];
+    nb  += b[i] * b[i];
+  }
+  return dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
+}
+
+// ── CHUNKS 기반 키워드 검색 ─────────────────────────────────────
+function searchChunksKeyword(query, topK) {
+  var tokens = query.toLowerCase().split(/[\s,.\?!()[\]{}'":;~`!@#$%^&*+=<>\/\\|]+/).filter(function(t){ return t.length >= 2; });
+  if (tokens.length === 0) return [];
+  var scored = [];
+  for (var i = 0; i < CHUNKS.length; i++) {
+    var chunk = CHUNKS[i];
+    var text = (chunk.search_text || "").toLowerCase();
+    var score = 0;
+    for (var j = 0; j < tokens.length; j++) {
+      var token = tokens[j];
+      var re = new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
+      var matches = text.match(re);
+      if (matches) {
+        score += matches.length * Math.min(token.length / 2, 3);
+        if ((chunk.title || "").toLowerCase().indexOf(token) >= 0) score += 5;
+      }
+    }
+    if (score > 0) scored.push({ chunk: chunk, score: score / 50 });
+  }
+  scored.sort(function(a, b) { return b.score - a.score; });
+  return scored.slice(0, topK);
+}
+
+// ── AI 답변 생성 ──────────────────────────────────────────────────
+async function generateAnswer(query, topChunks) {
+  var cacheKey = "ans_" + simpleHash(query.toLowerCase().trim());
+  try {
+    var cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      var obj = JSON.parse(cached);
+      if (Date.now() - obj.ts < 24 * 60 * 60 * 1000) {
+        console.log("[AI] 캐시 답변 사용");
+        var cleaned = postProcessKorean(obj.answer);
+        if (cleaned !== obj.answer) cacheAnswer(cacheKey, cleaned);
+        return cleaned + "\n\n*(이전 답변 캐시 사용 · API 호출 0회)*";
+      }
+    }
+  } catch(e) { /* 무시 */ }
+
+  var context = topChunks.map(function(x, i) {
+    var c = x.chunk;
+    var content = (c.content || "").slice(0, 1500);
+    return "[자료" + (i+1) + "] " + c.source + "/" + (c.category || "") + "\n" + c.title + "\n" + content;
+  }).join("\n---\n");
+
+  var userMsg = "[참고 자료]\n" + context + "\n\n[질문]\n" + query + "\n\n위 자료만 근거로 답변. 반드시 한국어, HTML 태그 금지, markdown만.\n\n🚫 조항 번호(제○조/제○장/○항/○호) 본문·출처 모두 인용 금지.\n\n📋 답변 구조: 결론 1문장 → **굵은 섹션 헤더** + 「**라벨**: 설명.」 형식 불릿 → 비교 필요시 markdown 표 → **유의사항** 섹션 → 📎 [자료명].\n\n질문이 단순하면 답변도 단순하게!";
+
+  if (!GROQ_KEY) throw new Error("Groq API 키가 없습니다. 관리자에게 문의하거나 localStorage의 oq_groq_key를 설정하세요.");
+  var answer = await callGroq(userMsg);
+  cacheAnswer(cacheKey, answer);
+  return answer;
+}
+
+async function callGroq(userMsg) {
+  var res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + GROQ_KEY,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userMsg }
+      ],
+      max_tokens: 2048,
+      temperature: 0.2
+    })
+  });
+  if (!res.ok) {
+    var errText = await res.text();
+    throw new Error("Groq 오류 (" + res.status + "): " + errText.slice(0, 200));
+  }
+  var data = await res.json();
+  if (!data.choices || !data.choices[0]) throw new Error("Groq 응답이 비어있습니다");
+  return postProcessKorean(data.choices[0].message.content);
+}
+
+function postProcessKorean(text) {
+  if (!text) return text;
+  var result = text;
+  result = result.replace(/([^\n*><][^\n<>]{0,29}?)(<(?:ul|ol|table)[^>]*>)/gi, function(m, header, tag) {
+    var trimmed = header.trim();
+    if (!trimmed) return m;
+    if (/^\*\*.+\*\*$/.test(trimmed)) return m;
+    if (/[<>]/.test(trimmed)) return m;
+    return "\n\n**" + trimmed + "**\n\n" + tag;
+  });
+  result = result.replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, '**$1**');
+  result = result.replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, '**$1**');
+  result = result.replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, '*$1*');
+  result = result.replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, '*$1*');
+  result = result.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, function(match, content) {
+    var headerRow = '';
+    var theadMatch = content.match(/<thead[^>]*>([\s\S]*?)<\/thead>/i);
+    if (theadMatch) {
+      var headerCells = theadMatch[1].match(/<th[^>]*>([\s\S]*?)<\/th>/gi) || [];
+      var headers = headerCells.map(function(c){ return c.replace(/<[^>]*>/g,'').trim(); });
+      if (headers.length > 0) {
+        headerRow = '| ' + headers.join(' | ') + ' |\n';
+        headerRow += '|' + headers.map(function(){ return '------'; }).join('|') + '|\n';
+      }
+    }
+    var bodyContent = content.replace(/<thead[^>]*>[\s\S]*?<\/thead>/i, '');
+    var rows = bodyContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
+    var bodyRows = rows.map(function(row){
+      var cells = row.match(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi) || [];
+      return '| ' + cells.map(function(c){ return c.replace(/<[^>]*>/g,'').trim(); }).join(' | ') + ' |';
+    }).join('\n');
+    return '\n' + headerRow + bodyRows + '\n';
+  });
+  result = result.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, function(match, content){
+    var items = content.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
+    return '\n' + items.map(function(item){ return '- ' + item.replace(/<[^>]*>/g,'').trim(); }).join('\n') + '\n';
+  });
+  result = result.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, function(match, content){
+    var items = content.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
+    return '\n' + items.map(function(item, i){ return (i+1) + '. ' + item.replace(/<[^>]*>/g,'').trim(); }).join('\n') + '\n';
+  });
+  result = result.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '\n- $1');
+  result = result.replace(/<br\s*\/?>/gi, '\n');
+  result = result.replace(/<\/?p[^>]*>/gi, '\n');
+  result = result.replace(/<\/?[a-zA-Z][a-zA-Z0-9]*(?:\s[^<>]*?)?\/?>/g, '');
+  result = result.replace(/&lt;\/?[a-zA-Z][a-zA-Z0-9]*(?:\s[^&]*?)?&gt;/g, '');
+  var enReplacements = [
+    [/\bHowever,\s*/g,'하지만, '],[/\bhowever,\s*/g,'하지만, '],[/\bBut,\s*/g,'하지만, '],
+    [/\bMoreover,\s*/g,'또한, '],[/\bFurthermore,\s*/g,'또한, '],[/\bAdditionally,\s*/g,'추가로, '],
+    [/\bTherefore,\s*/g,'따라서, '],[/\bIn addition,\s*/g,'또한, '],[/\bAlso,\s*/g,'또한, '],
+    [/\bFor example,\s*/g,'예를 들어, '],[/\bIn other words,\s*/g,'즉, '],[/\bThus,\s*/g,'따라서, '],
+    [/\bMeanwhile,\s*/g,'한편, '],[/\bOn the other hand,\s*/g,'반면, ']
+  ];
+  enReplacements.forEach(function(r){ result = result.replace(r[0], r[1]); });
+  result = result.replace(/\n{3,}/g, '\n\n');
+  return result.trim();
+}
+
+function cacheAnswer(cacheKey, answer) {
+  try {
+    localStorage.setItem(cacheKey, JSON.stringify({ answer: answer, ts: Date.now() }));
+  } catch(e) {
+    if (e && (e.name === "QuotaExceededError" || /quota/i.test(e.message || ""))) {
+      cleanupOldAnswerCache(0.5);
+      try { localStorage.setItem(cacheKey, JSON.stringify({ answer: answer, ts: Date.now() })); } catch(e2) { /* 포기 */ }
+    }
+  }
+}
+
+function cleanupOldAnswerCache(ratio) {
+  var items = [];
+  for (var i = 0; i < localStorage.length; i++) {
+    var k = localStorage.key(i);
+    if (k && k.startsWith("ans_")) {
+      try { items.push({ key: k, ts: (JSON.parse(localStorage.getItem(k)).ts) || 0 }); } catch(_e) { items.push({ key: k, ts: 0 }); }
+    }
+  }
+  items.sort(function(a,b){ return a.ts - b.ts; });
+  var removeCount = Math.max(1, Math.floor(items.length * ratio));
+  var n = 0;
+  for (var i = 0; i < removeCount && i < items.length; i++) { localStorage.removeItem(items[i].key); n++; }
+  return n;
+}
+
+function isQuotaError(e) {
+  return e && (e.name === "QuotaExceededError" || e.name === "NS_ERROR_DOM_QUOTA_REACHED" || /quota/i.test(e.message || ""));
+}
+
+function simpleHash(str) {
+  var hash = 0;
+  for (var i = 0; i < str.length; i++) { hash = ((hash << 5) - hash) + str.charCodeAt(i); hash |= 0; }
+  return Math.abs(hash).toString(36);
+}
+
+// ── 복사 버튼 ────────────────────────────────────────────────────
+function copyAnswer() {
+  if (!_lastAnswer) return;
+  var copyBtn  = document.getElementById("copyBtn");
+  var copyText = document.getElementById("copyBtnText");
+  var copyIcon = document.getElementById("copyBtnIcon");
+  var aiText   = document.getElementById("aiText");
+  var wrappedHtml = '<div style="font-family:\'Malgun Gothic\',\'Noto Sans KR\',sans-serif;font-size:14px;line-height:1.7;color:#1a1f36;">' + aiText.innerHTML + '</div>';
+  var plainText = markdownToPlainText(_lastAnswer);
+  function showCopySuccess() {
+    copyBtn.classList.add("copied");
+    copyIcon.textContent = "✓";
+    copyText.textContent = "복사됨!";
+    setTimeout(function() {
+      copyBtn.classList.remove("copied");
+      copyIcon.textContent = "📋";
+      copyText.textContent = "복사";
+    }, 2000);
+  }
+  if (navigator.clipboard && navigator.clipboard.write && window.ClipboardItem) {
+    try {
+      var item = new ClipboardItem({
+        "text/html":  new Blob([wrappedHtml], { type: "text/html" }),
+        "text/plain": new Blob([plainText],   { type: "text/plain" })
+      });
+      navigator.clipboard.write([item]).then(showCopySuccess).catch(function(){
+        navigator.clipboard.writeText(plainText).then(showCopySuccess).catch(function(){ fallbackCopy(plainText, showCopySuccess); });
+      });
+      return;
+    } catch(_e) { /* 폴백 */ }
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(plainText).then(showCopySuccess).catch(function(){ fallbackCopy(plainText, showCopySuccess); });
+  } else {
+    fallbackCopy(plainText, showCopySuccess);
+  }
+  function fallbackCopy(text, cb) {
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.top = "-9999px";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); cb(); } catch(_e) { alert("복사 실패. 직접 선택해서 복사해주세요."); }
+    document.body.removeChild(ta);
+  }
+}
+window.copyAnswer = copyAnswer;
+
+function markdownToPlainText(md) {
+  if (!md) return "";
+  var text = md;
+  text = text.replace(/(\|[^\n]+\|\n\|[\s\-:|]+\|\n(?:\|[^\n]+\|\n?)+)/g, function(table) {
+    var lines = table.trim().split("\n");
+    var dataLines = [lines[0]].concat(lines.slice(2));
+    var rows = dataLines.map(function(line) {
+      var cells = line.split("|");
+      if (cells.length > 0 && !cells[0].trim()) cells.shift();
+      if (cells.length > 0 && !cells[cells.length-1].trim()) cells.pop();
+      return cells.map(function(c){ return c.replace(/\*\*(.+?)\*\*/g,"$1").replace(/\*(.+?)\*/g,"$1").trim(); });
+    });
+    var widths = [];
+    rows.forEach(function(r){ r.forEach(function(c,i){ widths[i] = Math.max(widths[i]||0, [...c].length); }); });
+    var formatted = rows.map(function(r){ return r.map(function(c,i){ return c + " ".repeat(Math.max(0, widths[i] - [...c].length)); }).join("  │  "); });
+    var sep = widths.map(function(w){ return "─".repeat(w); }).join("──┼──");
+    return "\n" + formatted[0] + "\n" + sep + "\n" + formatted.slice(1).join("\n") + "\n";
+  });
+  text = text.replace(/^#{1,6}\s+/gm, "");
+  text = text.replace(/\*\*(.+?)\*\*/g, "$1");
+  text = text.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, "$1");
+  text = text.replace(/`([^`]+)`/g, "$1");
+  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  text = text.replace(/\n{3,}/g, "\n\n");
+  return text.trim();
+}
+
+// ── Markdown → HTML 렌더링 ────────────────────────────────────────
+function renderAIMarkdown(md) {
+  if (md && /<[a-zA-Z]/.test(md)) md = postProcessKorean(md);
+  var html = md;
+  // 표
+  html = html.replace(/(\|[^\n]+\|\n\|[\s\-:|]+\|\n(?:\|[^\n]+\|\n?)+)/g, function(table) {
+    var lines = table.trim().split("\n");
+    var header = lines[0].split("|").filter(function(c){ return c.trim(); }).map(function(c){ return "<th>" + escHtml(c.trim()) + "</th>"; }).join("");
+    var rows = lines.slice(2).map(function(line) {
+      var cells = line.split("|").filter(function(c,i,a){ return !(i===0&&!c.trim()) && !(i===a.length-1&&!c.trim()); });
+      return "<tr>" + cells.map(function(c){ return "<td>" + renderAIInline(c.trim()) + "</td>"; }).join("") + "</tr>";
+    }).join("");
+    return "<table><thead><tr>" + header + "</tr></thead><tbody>" + rows + "</tbody></table>";
+  });
+  // 헤딩
+  html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
+  html = html.replace(/^## (.+)$/gm, "<h3>$1</h3>");
+  // 리스트
+  html = html.replace(/(?:^- (.+)$\n?)+/gm, function(m) {
+    var items = m.trim().split(/\n/).map(function(line){ return line.replace(/^- /, "").trim(); });
+    return "<ul>" + items.map(function(i){ return "<li>" + renderAIInline(i) + "</li>"; }).join("") + "</ul>";
+  });
+  // 단락
+  html = html.split(/\n\n+/).map(function(p) {
+    if (p.match(/^<(h\d|ul|ol|table|pre)/)) return p;
+    return "<p>" + renderAIInline(p) + "</p>";
+  }).join("");
+  return html;
+}
+
+function renderAIInline(text) {
+  text = escHtml(text);
+  text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
+  text = text.replace(/\n/g, "<br>");
+  return text;
+}
+
+function escHtml(text) {
+  return String(text).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+// ── 출처 카드 렌더링 ─────────────────────────────────────────────
+function renderSources(topChunks) {
+  var list = document.getElementById("sourcesList");
+  list.innerHTML = topChunks.map(function(x, i) {
+    var c = x.chunk;
+    var tagClass = getAITagClass(c.source);
+    var tagLabel = (c.source || "").split("/")[0];
+    var score = (x.score * 100).toFixed(0) + "%";
+    return '<div class="source-card" onclick="toggleSource(' + i + ')">' +
+      '<div class="source-card-hdr">' +
+      '<span class="source-tag ' + tagClass + '">' + escHtml(tagLabel) + '</span>' +
+      '<span class="source-title">' + escHtml((c.title || "").slice(0, 80)) + '</span>' +
+      '<span class="source-score">' + score + '</span>' +
+      '</div>' +
+      '<div class="source-body">' + escHtml(c.content || "") + '</div>' +
+      '</div>';
+  }).join("");
+}
+window.renderSources = renderSources;
+
+function getAITagClass(source) {
+  if (!source) return "";
+  if (source.startsWith("Q&A")) return "tag-qa";
+  if (source.startsWith("매뉴얼")) return "tag-manual";
+  if (source.includes("규정")) return "tag-rule";
+  if (source.includes("구간")) return "tag-route";
+  return "";
+}
+
+function toggleSource(i) {
+  var cards = document.querySelectorAll(".source-card");
+  if (cards[i]) cards[i].classList.toggle("open");
+}
+window.toggleSource = toggleSource;
+
+function toggleSrcPanel() {
+  var panel = document.getElementById("srcPanel");
+  panel.classList.toggle("open");
+  var btn = document.getElementById("srcBtn");
+  var cnt = document.getElementById("srcCount").textContent;
+  btn.innerHTML = panel.classList.contains("open")
+    ? '▲ 소스 <span id="srcCount">' + cnt + '</span>개'
+    : '📎 소스 <span id="srcCount">' + cnt + '</span>개';
+}
+window.toggleSrcPanel = toggleSrcPanel;
+
+// ====================================================
 async function init() {
   try {
     var result = await loadFromFirestore();
@@ -2260,6 +2852,9 @@ async function init() {
     document.getElementById("welcome").style.display = "block";
     logAccess('visit', {});
 
+    // AI 검색 청크 초기화 (비동기, 실패해도 기존 기능 유지)
+    initSearch().catch(function(e){ console.warn('[Search] initSearch 실패:', e); });
+
   } catch(e) {
     console.error("[KB] 로딩 오류:", e);
     document.getElementById("initLoading").textContent = "❌ 오류: " + e.message + " (F12 콘솔 확인)";
@@ -2321,6 +2916,42 @@ function tokenize(s) {
   var all = toks.concat(bg);
   var seen = {};
   return all.filter(function(v){ if(seen[v]) return false; seen[v]=1; return true; });
+}
+
+// ── 자연어 쿼리 → 핵심 검색어 추출 (Groq 활용) ───────────────────
+var _extractCache = {};
+async function extractSearchTerms(query) {
+  if (_extractCache[query]) return _extractCache[query];
+  var key = GROQ_KEY || (localStorage.getItem('oq_groq_key')||'').trim();
+  if (!key) return [];
+  try {
+    var res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{
+          role: "user",
+          content: "현대자동차 출장관리 시스템 검색을 위해 다음 질문에서 검색에 유용한 한국어 핵심 키워드를 최대 10개 추출해주세요.\n"
+            + "규칙:\n"
+            + "- 출장관리 도메인 용어 위주 (출장정산, 교통비, 숙박비, 일비, 자동회수 등)\n"
+            + "- 동의어/축약어 포함 (예: '정산 못함' → '미정산', '회수')\n"
+            + "- 쉼표로만 구분, 키워드만 출력, 설명 없음\n"
+            + "질문: \"" + query + "\""
+        }],
+        max_tokens: 80,
+        temperature: 0
+      })
+    });
+    if (!res.ok) return [];
+    var data = await res.json();
+    var text = (data.choices && data.choices[0] && data.choices[0].message.content) || '';
+    var terms = text.split(/[,，\s]+/).map(function(t){ return t.trim(); }).filter(function(t){ return t.length >= 2; });
+    _extractCache[query] = terms;
+    return terms;
+  } catch(e) {
+    return [];
+  }
 }
 function hlOne(text, kw) {
   if (!kw || !text) return esc(text||"");
@@ -2501,10 +3132,43 @@ async function doSearch() {
   document.getElementById("noResults").style.display="none";
   document.getElementById("results").innerHTML="";
   document.getElementById("resHdr").style.display="none";
-  var aiBox=document.getElementById("aiBox"); var aiText=document.getElementById("aiText");
-  aiBox.classList.add("on");
-  aiText.innerHTML="<div class=\"ai-loading\"><div class=\"spinner\"></div>AI가 분석 중입니다...</div>";
-  var qn=norm(query); var tokens=tokenize(query);
+  // ── 채팅형 UI 초기화 ──────────────────────────────────────────────
+  var chatWrap = document.getElementById("chatWrap");
+  var aiText   = document.getElementById("aiText");
+  var chatBubble = document.getElementById("chatBubble");
+  chatWrap.classList.add("on");
+  document.getElementById("srcPanel").classList.remove("open");
+  document.getElementById("srcBtn").style.display = "none";
+  document.getElementById("copyBtn").style.display = "none";
+
+  // 이전 이미지 패널 제거
+  var prevImgPanel = document.getElementById('chatImgPanel');
+  if (prevImgPanel) prevImgPanel.remove();
+
+  // 질문 버블에 검색어 표시
+  chatBubble.textContent = query;
+
+  // ── 1. 자연어 → 핵심 키워드 추출 후 검색 ────────────────────────
+  document.getElementById("aiSub").textContent = "문장 분석 중...";
+  aiText.innerHTML="<div class=\"ai-loading\"><div class=\"spinner\"></div>문장을 분석하고 있습니다...</div>";
+
+  // Groq으로 자연어 쿼리에서 핵심 검색어 추출
+  var extractedTerms = await extractSearchTerms(query);
+
+  // 기존 토큰 + 추출된 키워드 합산
+  var qn = norm(query);
+  var baseTokens = tokenize(query);
+  var aiTokens   = extractedTerms.map(function(t){ return norm(t); });
+  // 중복 제거 후 합산 (AI 추출 키워드에 가중치 부여 위해 2번 추가)
+  var allTokens  = baseTokens.concat(aiTokens).concat(aiTokens);
+  var seenTok = {};
+  var tokens = allTokens.filter(function(t){ if(seenTok[t]) return false; seenTok[t]=1; return true; });
+
+  // 추출된 키워드 표시
+  if (extractedTerms.length > 0) {
+    document.getElementById("aiSub").textContent = "검색어: " + extractedTerms.slice(0,6).join(", ");
+  }
+
   var scored=[];
   for(var i=0;i<allItems.length;i++){
     var item=allItems[i];
@@ -2516,26 +3180,133 @@ async function doSearch() {
   scored.sort(function(a,b){return b.sc-a.sc;});
   var maxSc=scored.length>0?scored[0].sc:1;
   var top=scored.slice(0,20);
-  var ctx=scored.slice(0,6).map(function(x,i){
-    return "["+(i+1)+"] 출처:"+x.item.source+"\nQ:"+x.item.question.slice(0,250)+"\nA:"+x.item.answer.slice(0,350);
-  }).join("\n\n");
+
+  // ── 2. AI 답변 생성 (Groq + hybrid search) ──────────────────────
   try {
-    var resp=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,
-        system:"당신은 현대자동차 출장관리 전문 상담원입니다. 제공된 데이터 기반으로 한국어로 200자 이내 핵심만 간결하게 답변하세요.",
-        messages:[{role:"user",content:"질문: \""+query+"\"\n\n관련 데이터:\n"+(ctx||"없음")+"\n\n답변해주세요."}]})
-    });
-    var data=await resp.json();
-    aiText.textContent=(data.content&&data.content[0])?data.content[0].text:"답변을 생성할 수 없습니다.";
-  } catch(e) { aiText.textContent="검색된 "+top.length+"건의 결과를 아래에서 확인하세요."; }
+    var topChunks;
+    if (HAS_EMBEDDINGS && CHUNKS.length > 0) {
+      document.getElementById("aiSub").textContent = "의미 + 키워드 검색 중...";
+      aiText.innerHTML="<div class=\"ai-loading\"><div class=\"spinner\"></div>관련 자료 의미 검색 중...</div>";
+      var semanticResults = await searchSemantic(query, 8);
+      var keywordResults  = searchChunksKeyword(query, 5);
+      var seen = {};
+      semanticResults.forEach(function(r){ seen[r.chunk.id]=true; });
+      var merged = semanticResults.slice();
+      keywordResults.forEach(function(k){ if(!seen[k.chunk.id]) merged.push(k); });
+      topChunks = merged.slice(0, 10);
+    } else if (CHUNKS.length > 0) {
+      document.getElementById("aiSub").textContent = "키워드 검색 중...";
+      topChunks = searchChunksKeyword(query, 8);
+    } else {
+      // fallback: allItems를 chunks 형태로 변환
+      document.getElementById("aiSub").textContent = "KB 검색 중...";
+      topChunks = scored.slice(0, 8).map(function(x) {
+        return {
+          chunk: {
+            id: x.item._docId || String(x.idx),
+            source: x.item.source,
+            category: x.item.category || "",
+            title: x.item.question.slice(0, 60),
+            content: x.item.answer,
+            search_text: ""
+          },
+          score: x.sc / (maxSc || 1)
+        };
+      });
+    }
+
+    aiText.innerHTML="<div class=\"ai-loading\"><div class=\"spinner\"></div>답변 생성 중...</div>";
+    document.getElementById("aiSub").textContent = "AI 답변 작성 중...";
+
+    var answer = await generateAnswer(query, topChunks);
+    _lastAnswer = answer;
+    aiText.innerHTML = renderAIMarkdown(answer);
+
+    // ── 관련 이미지 수집 (상위 scored allItems에서 이미지 보유 항목) ──
+    var relImgs = [];
+    var imgFields = ['img','img0','img1','img2','img3','img4'];
+    var capFields = ['img_caption','','img1_caption','img2_caption','',''];
+    for (var si = 0; si < Math.min(scored.length, 10); si++) {
+      var sItem = scored[si].item;
+      for (var fi = 0; fi < imgFields.length; fi++) {
+        var f = imgFields[fi];
+        if (sItem[f]) {
+          var src = sItem[f];
+          // base64는 data: prefix 없으면 추가
+          if (!src.startsWith('http') && !src.startsWith('data:')) {
+            src = 'data:image/png;base64,' + src;
+          }
+          relImgs.push({ src: src, cap: sItem[capFields[fi]] || sItem.question.slice(0,40) });
+        }
+      }
+      // _hasImg: true 이지만 이미지 없는 경우 → Firestore에서 lazy load
+      if (sItem._hasImg && sItem._docId && relImgs.length === 0) {
+        (function(item) {
+          var col = item.type === 'qa' ? 'qa' : 'manual';
+          db.collection(col).doc(item._docId).get().then(function(doc) {
+            if (!doc.exists) return;
+            var d = doc.data();
+            var added = false;
+            imgFields.forEach(function(f, fi) {
+              if (d[f] && !added) {
+                var s = d[f];
+                if (!s.startsWith('http') && !s.startsWith('data:')) s = 'data:image/png;base64,' + s;
+                var panel = document.getElementById('chatImgPanel');
+                if (panel) {
+                  var thumb = document.createElement('div');
+                  thumb.className = 'chat-img-thumb';
+                  thumb.onclick = function(){ openImgModal(s, d[capFields[fi]]||item.question.slice(0,40)); };
+                  thumb.innerHTML = '<img src="'+s+'" alt=""><div class="chat-img-cap">'+escHtml(d[capFields[fi]]||'')+' </div>';
+                  panel.querySelector('.chat-imgs-grid').appendChild(thumb);
+                  panel.style.display = 'block';
+                  added = true;
+                }
+              }
+            });
+          }).catch(function(){});
+        })(sItem);
+      }
+      if (relImgs.length >= 6) break; // 최대 6장
+    }
+
+    // ── 이미지 패널 렌더링 ─────────────────────────────────────────
+    var existPanel = document.getElementById('chatImgPanel');
+    if (existPanel) existPanel.remove();
+    if (relImgs.length > 0) {
+      var imgHtml = '<div id="chatImgPanel" class="chat-img-panel">'
+        + '<div class="chat-imgs-label">🖼️ 관련 이미지</div>'
+        + '<div class="chat-imgs-grid">';
+      relImgs.forEach(function(img) {
+        imgHtml += '<div class="chat-img-thumb" onclick="openImgModal(\'' + img.src.replace(/'/g,"\\'") + '\',\'' + escHtml(img.cap).replace(/'/g,"\\'") + '\')">'
+          + '<img src="' + img.src + '" alt="' + escHtml(img.cap) + '">'
+          + (img.cap ? '<div class="chat-img-cap">' + escHtml(img.cap) + '</div>' : '')
+          + '</div>';
+      });
+      imgHtml += '</div></div>';
+      aiText.insertAdjacentHTML('afterend', imgHtml);
+    }
+
+    document.getElementById("aiSub").textContent = "AI 답변 · " + topChunks.length + "개 자료 기반";
+    document.getElementById("copyBtn").style.display = "flex";
+    // 소스 버튼
+    document.getElementById("srcCount").textContent = topChunks.length;
+    document.getElementById("srcBtn").style.display = "flex";
+    renderSources(topChunks);
+  } catch(e) {
+    console.warn("[AI] 답변 생성 실패:", e);
+    aiText.innerHTML = "<div style=\"color:var(--text2);font-size:13px\">검색된 " + top.length + "건의 결과를 아래에서 확인하세요.<br><small style=\"color:#94a3b8\">" + escHtml(e.message) + "</small></div>";
+  }
+
   logAccess('search', {query: query, result_count: scored.length});
   btn.disabled=false; btn.textContent="AI 검색";
   if(top.length===0){document.getElementById("noResults").style.display="block";return;}
   document.getElementById("resHdr").style.display="flex";
   document.getElementById("resCnt").textContent=scored.length;
   var container=document.getElementById("results");
-  var terms=tokens.filter(function(t){return t.length>=2;});
+  // 하이라이팅: 원본 토큰 + AI 추출 키워드 합산
+  var terms = tokens.concat(extractedTerms.map(function(t){ return norm(t); }))
+    .filter(function(t){ return t.length>=2; })
+    .filter(function(t,i,a){ return a.indexOf(t)===i; }); // 중복 제거
   var html="";
   for(var ri=0;ri<top.length;ri++){
     var x=top[ri]; var item=x.item;
