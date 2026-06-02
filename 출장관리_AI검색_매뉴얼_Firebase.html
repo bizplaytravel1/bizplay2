@@ -77,18 +77,15 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
 .chip{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s}
 .chip:hover{border-color:var(--accent2);color:var(--accent2)}
-/* ── 채팅형 AI 검색 UI ── */
-.chat-wrap{display:none;flex-direction:column;gap:16px;margin-bottom:16px;animation:fadeIn .3s ease}
-.chat-wrap.on{display:flex}
-.chat-bubble{background:#f1f5f9;border-radius:16px 16px 4px 16px;padding:14px 18px;font-size:14px;line-height:1.75;color:var(--text);max-width:88%;align-self:flex-end;box-shadow:0 1px 3px rgba(0,0,0,.06);white-space:pre-wrap;word-break:break-word}
-.chat-answer{background:var(--surface);border:1px solid var(--border);border-radius:4px 16px 16px 16px;padding:20px 24px;font-size:14px;line-height:1.85;color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.05)}
-.chat-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 4px 4px;flex-wrap:wrap}
-.chat-sub{font-size:11px;color:var(--text3);flex:1}
-.chat-actions{display:flex;align-items:center;gap:8px}
-.src-btn{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12px;color:var(--text2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;display:flex;align-items:center;gap:5px;white-space:nowrap}
-.src-btn:hover{border-color:var(--accent);color:var(--accent)}
-.src-panel{display:none;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-top:6px}
-.src-panel.open{display:block;animation:fadeIn .2s ease}
+/* ── AI 답변 박스 (index.html 스타일) ── */
+.ai-box{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:12px;padding:22px 26px;margin-bottom:22px;display:none;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.ai-box.on{display:block;animation:fadeIn .3s ease}
+.ai-hdr{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.ai-badge{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.05em;flex-shrink:0}
+.ai-sub{font-size:12px;color:var(--text2);flex:1}
+.ai-copy-btn{background:var(--surface2);color:var(--text2);border:1px solid var(--border);cursor:pointer;padding:5px 12px;border-radius:6px;font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px;transition:all .15s;white-space:nowrap;flex-shrink:0}
+.ai-copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+.ai-copy-btn.copied{background:#dcfce7;color:#15803d;border-color:#86efac}
 /* 관련 이미지 패널 */
 .chat-img-panel{margin-top:14px;padding-top:14px;border-top:1px dashed var(--border)}
 .chat-imgs-label{font-size:11px;color:var(--text3);font-weight:700;margin-bottom:10px;letter-spacing:.05em;text-transform:uppercase}
@@ -97,9 +94,9 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
 .chat-img-thumb:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(37,99,235,.12)}
 .chat-img-thumb img{width:100%;max-height:110px;object-fit:cover;display:block}
 .chat-img-cap{font-size:11px;color:var(--text2);padding:5px 8px;line-height:1.4;word-break:break-all}
-/* 기존 ai-box 숨김 (채팅형으로 대체) */
-.ai-box{display:none!important}
-.ai-loading{display:flex;align-items:center;gap:10px;color:var(--text2);font-size:14px}
+.search-clear-btn{display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:0 6px;line-height:1;transition:color .15s;flex-shrink:0}
+.search-clear-btn:hover{color:var(--text)}
+.search-clear-btn.show{display:block}
 .ai-loading{display:flex;align-items:center;gap:10px;color:var(--text2);font-size:14px}
 .spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
 .res-hdr{display:none;justify-content:space-between;align-items:center;margin-bottom:14px}
@@ -746,6 +743,7 @@ mark{background:rgba(79,142,247,.25);color:var(--accent);border-radius:3px;paddi
     <div class="search-input-wrap">
       <span class="si-icon">&#9003;</span>
       <input type="text" class="search-input" id="searchInput" placeholder="예: 남양연구소에서 동탄역까지 교통비 정산 방법은?">
+      <button class="search-clear-btn" id="searchClearBtn" type="button" onclick="clearSearch()" title="지우기">✕</button>
     </div>
     <button class="search-btn" id="searchBtn" onclick="doSearch()">AI 검색</button>
   </div>
@@ -781,31 +779,21 @@ mark{background:rgba(79,142,247,.25);color:var(--accent);border-radius:3px;paddi
     <span class="chip" onclick="quickSearch('하이패스 모듈 설치 오류')">하이패스 모듈 설치 오류</span>
     <span class="chip" onclick="quickSearch('스크래핑 모듈 설치')">스크래핑 모듈 설치</span>
   </div>
-  <!-- 채팅형 AI 답변 영역 -->
-  <div class="chat-wrap" id="chatWrap">
-    <!-- 질문 버블 -->
-    <div class="chat-bubble" id="chatBubble"></div>
-    <!-- AI 답변 -->
-    <div class="chat-answer" id="aiText"></div>
-    <!-- 하단: 정보 + 복사·소스 버튼 -->
-    <div class="chat-footer">
-      <span class="chat-sub" id="aiSub"></span>
-      <div class="chat-actions">
-        <button class="src-btn" id="srcBtn" onclick="toggleSrcPanel()" style="display:none">📎 소스 <span id="srcCount">0</span>개</button>
-        <button class="ai-copy-btn" id="copyBtn" type="button" onclick="copyAnswer()" style="display:none">
-          <span id="copyBtnIcon">📋</span><span id="copyBtnText">복사</span>
-        </button>
-      </div>
+  <!-- AI 답변 박스 (index.html 스타일) -->
+  <div class="ai-box" id="aiBox">
+    <div class="ai-hdr">
+      <span class="ai-badge">AI 답변</span>
+      <span class="ai-sub" id="aiSub">자료 기반 생성</span>
+      <button class="ai-copy-btn" id="copyBtn" type="button" onclick="copyAnswer()" style="display:none">
+        <span id="copyBtnIcon">📋</span><span id="copyBtnText">복사</span>
+      </button>
     </div>
-    <!-- 소스 패널 (접고 펼치기) -->
-    <div class="src-panel" id="srcPanel">
+    <div class="ai-content" id="aiText"></div>
+    <!-- 관련 이미지 (동적으로 삽입) -->
+    <div class="sources-section" id="sourcesSection" style="display:none">
       <div class="sources-label">📎 참고 자료</div>
       <div id="sourcesList"></div>
     </div>
-  </div>
-  <!-- 기존 ai-box (호환용 - 숨김) -->
-  <div class="ai-box" id="aiBox" style="display:none">
-    <div id="sourcesSection" style="display:none"><div id="_unused_sourcesList"></div></div>
   </div>
   <div class="res-hdr" id="resHdr">
     <div class="res-count">검색 결과: <strong id="resCnt">0</strong>건</div>
@@ -2486,7 +2474,7 @@ async function generateAnswer(query, topChunks) {
         console.log("[AI] 캐시 답변 사용");
         var cleaned = postProcessKorean(obj.answer);
         if (cleaned !== obj.answer) cacheAnswer(cacheKey, cleaned);
-        return cleaned + "\n\n*(이전 답변 캐시 사용 · API 호출 0회)*";
+        return cleaned;  // 캐시 안내 텍스트 노출 안 함
       }
     }
   } catch(e) { /* 무시 */ }
@@ -2499,17 +2487,24 @@ async function generateAnswer(query, topChunks) {
 
   var userMsg = "[참고 자료]\n" + context + "\n\n[질문]\n" + query + "\n\n위 자료만 근거로 답변. 반드시 한국어, HTML 태그 금지, markdown만.\n\n🚫 조항 번호(제○조/제○장/○항/○호) 본문·출처 모두 인용 금지.\n\n📋 답변 구조: 결론 1문장 → **굵은 섹션 헤더** + 「**라벨**: 설명.」 형식 불릿 → 비교 필요시 markdown 표 → **유의사항** 섹션 → 📎 [자료명].\n\n질문이 단순하면 답변도 단순하게!";
 
-  if (!GROQ_KEY) throw new Error("Groq API 키가 없습니다. 관리자에게 문의하거나 localStorage의 oq_groq_key를 설정하세요.");
+  // GROQ_KEY fallback: localStorage oq_groq_key (관리자 페이지에서 저장한 키)
+  if (!GROQ_KEY) {
+    GROQ_KEY = (localStorage.getItem('oq_groq_key') || '').trim();
+  }
+  if (!GROQ_KEY) throw new Error("Groq API 키가 설정되지 않았습니다. 관리자 페이지에서 Groq API 키를 저장해주세요.");
   var answer = await callGroq(userMsg);
   cacheAnswer(cacheKey, answer);
   return answer;
 }
 
 async function callGroq(userMsg) {
+  // 키 재확인 (generateAnswer에서 설정 안 됐을 경우 대비)
+  var groqKey = GROQ_KEY || (localStorage.getItem('oq_groq_key') || '').trim();
+  if (!groqKey) throw new Error("Groq 키 없음");
   var res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
-      "Authorization": "Bearer " + GROQ_KEY,
+      "Authorization": "Bearer " + groqKey,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
@@ -2775,16 +2770,7 @@ function toggleSource(i) {
 }
 window.toggleSource = toggleSource;
 
-function toggleSrcPanel() {
-  var panel = document.getElementById("srcPanel");
-  panel.classList.toggle("open");
-  var btn = document.getElementById("srcBtn");
-  var cnt = document.getElementById("srcCount").textContent;
-  btn.innerHTML = panel.classList.contains("open")
-    ? '▲ 소스 <span id="srcCount">' + cnt + '</span>개'
-    : '📎 소스 <span id="srcCount">' + cnt + '</span>개';
-}
-window.toggleSrcPanel = toggleSrcPanel;
+// toggleSrcPanel 제거 (소스 패널이 항상 펼쳐진 상태로 표시)
 
 // ====================================================
 async function init() {
@@ -3029,8 +3015,20 @@ function setFilter(val, btn) {
 }
 window.setFilter = setFilter;
 
+function clearSearch() {
+  var si = document.getElementById("searchInput");
+  var cb = document.getElementById("searchClearBtn");
+  si.value = "";
+  if (cb) cb.classList.remove("show");
+  si.focus();
+}
+window.clearSearch = clearSearch;
+
 function quickSearch(q) {
-  document.getElementById("searchInput").value = q;
+  var si = document.getElementById("searchInput");
+  var cb = document.getElementById("searchClearBtn");
+  si.value = q;
+  if (cb) cb.classList.add("show");
   doSearch();
 }
 window.quickSearch = quickSearch;
@@ -3132,21 +3130,17 @@ async function doSearch() {
   document.getElementById("noResults").style.display="none";
   document.getElementById("results").innerHTML="";
   document.getElementById("resHdr").style.display="none";
-  // ── 채팅형 UI 초기화 ──────────────────────────────────────────────
-  var chatWrap = document.getElementById("chatWrap");
-  var aiText   = document.getElementById("aiText");
-  var chatBubble = document.getElementById("chatBubble");
-  chatWrap.classList.add("on");
-  document.getElementById("srcPanel").classList.remove("open");
-  document.getElementById("srcBtn").style.display = "none";
+  var startTime = Date.now();
+  // ── AI 박스 초기화 ────────────────────────────────────────────────
+  var aiBox = document.getElementById("aiBox");
+  var aiText = document.getElementById("aiText");
+  aiBox.classList.add("on");
+  document.getElementById("sourcesSection").style.display = "none";
   document.getElementById("copyBtn").style.display = "none";
 
   // 이전 이미지 패널 제거
   var prevImgPanel = document.getElementById('chatImgPanel');
   if (prevImgPanel) prevImgPanel.remove();
-
-  // 질문 버블에 검색어 표시
-  chatBubble.textContent = query;
 
   // ── 1. 자연어 → 핵심 키워드 추출 후 검색 ────────────────────────
   document.getElementById("aiSub").textContent = "문장 분석 중...";
@@ -3222,12 +3216,15 @@ async function doSearch() {
     _lastAnswer = answer;
     aiText.innerHTML = renderAIMarkdown(answer);
 
-    // ── 관련 이미지 수집 (상위 scored allItems에서 이미지 보유 항목) ──
+    // ── 관련 이미지 수집 (관련성 높은 상위 항목에서만) ──────────────
     var relImgs = [];
     var imgFields = ['img','img0','img1','img2','img3','img4'];
     var capFields = ['img_caption','','img1_caption','img2_caption','',''];
-    for (var si = 0; si < Math.min(scored.length, 10); si++) {
-      var sItem = scored[si].item;
+    // 점수 임계값: 최고 점수의 60% 이상인 항목만 이미지 표시
+    var imgScoreThreshold = maxSc * 0.6;
+    var imgCandidates = scored.filter(function(x){ return x.sc >= imgScoreThreshold; }).slice(0, 5);
+    for (var si = 0; si < imgCandidates.length; si++) {
+      var sItem = imgCandidates[si].item;
       for (var fi = 0; fi < imgFields.length; fi++) {
         var f = imgFields[fi];
         if (sItem[f]) {
@@ -3283,15 +3280,16 @@ async function doSearch() {
           + '</div>';
       });
       imgHtml += '</div></div>';
-      aiText.insertAdjacentHTML('afterend', imgHtml);
+      // sourcesSection 앞에 삽입
+      var srcSec = document.getElementById('sourcesSection');
+      if (srcSec) srcSec.insertAdjacentHTML('beforebegin', imgHtml);
+      else aiText.insertAdjacentHTML('afterend', imgHtml);
     }
 
-    document.getElementById("aiSub").textContent = "AI 답변 · " + topChunks.length + "개 자료 기반";
+    document.getElementById("aiSub").textContent = (HAS_EMBEDDINGS ? "의미 검색" : "키워드 검색") + " · " + topChunks.length + "개 자료 · " + (Date.now() - startTime) + "ms";
     document.getElementById("copyBtn").style.display = "flex";
-    // 소스 버튼
-    document.getElementById("srcCount").textContent = topChunks.length;
-    document.getElementById("srcBtn").style.display = "flex";
     renderSources(topChunks);
+    document.getElementById("sourcesSection").style.display = "block";
   } catch(e) {
     console.warn("[AI] 답변 생성 실패:", e);
     aiText.innerHTML = "<div style=\"color:var(--text2);font-size:13px\">검색된 " + top.length + "건의 결과를 아래에서 확인하세요.<br><small style=\"color:#94a3b8\">" + escHtml(e.message) + "</small></div>";
@@ -3406,7 +3404,11 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     });
   });
-  document.getElementById("searchInput").addEventListener("keydown", function(e){if(e.key==="Enter") doSearch();});
+  var _si = document.getElementById("searchInput");
+  var _cb = document.getElementById("searchClearBtn");
+  _si.addEventListener("keydown", function(e){if(e.key==="Enter") doSearch();});
+  _si.addEventListener("input", function(){ _cb && (_cb.classList.toggle("show", _si.value.length > 0)); });
+  _si.addEventListener("change", function(){ _cb && (_cb.classList.toggle("show", _si.value.length > 0)); });
   // Storage URL 이미지 썸네일 클릭 (이벤트 위임)
   document.getElementById("results").addEventListener("click", function(e) {
     var thumb = e.target.closest(".url-img-thumb");
