@@ -278,33 +278,48 @@ async function main() {
       return null;
     });
 
-    const filterElProp = await filterEl.getProperty('tagName').catch(() => null);
-    if (filterElProp) {
-      // 요소 위치로 스크롤 후 클릭
-      await page.evaluate(el => {
-        el.scrollIntoView({ block: 'center' });
-      }, filterEl);
-      await sleep(500);
+    // asElement()로 실제 DOM 요소인지 확인 (null JSHandle 클릭 방지)
+    const filterElHandle = filterEl.asElement();
+    if (filterElHandle) {
+      try {
+        // 스크롤 후 클릭 — 클릭 후 SPA 네비게이션 발생 가능하므로 동시에 대기
+        await page.evaluate(el => el.scrollIntoView({ block: 'center' }), filterElHandle);
+        await sleep(500);
 
-      // dispatchEvent로 실제 클릭 이벤트 발생
-      await page.evaluate(el => {
-        el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-        el.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true }));
-        el.dispatchEvent(new MouseEvent('click',     { bubbles: true }));
-        // 부모 요소도 클릭
-        if (el.parentElement) {
-          el.parentElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await Promise.all([
+          // 네비게이션이 발생하면 대기 (SPA라면 발생 안 할 수도 있으므로 timeout 짧게)
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {}),
+          page.evaluate(el => {
+            el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+            el.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true }));
+            el.dispatchEvent(new MouseEvent('click',     { bubbles: true }));
+            if (el.parentElement) {
+              el.parentElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            }
+          }, filterElHandle)
+        ]);
+
+        console.log('✅ 강인혁 필터 클릭 완료');
+        await sleep(2500);
+
+        // 필터 적용 후 렌더링 대기
+        try {
+          await page.waitForFunction(
+            () => /\b\d{4,6}\b/.test(document.body.innerText),
+            { timeout: 8000, polling: 500 }
+          );
+        } catch (_) {}
+
+      } catch (clickErr) {
+        console.log('⚠️ 강인혁 필터 클릭 오류:', clickErr.message, '— 전체 티켓 진행');
+        // 페이지가 네비게이션으로 리로드됐을 경우 재이동
+        if (!page.url().includes('bizplay.oqupie.com')) {
+          await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+          await sleep(2000);
         }
-      }, filterEl);
-
-      console.log('✅ 강인혁 필터 클릭 완료');
-      await sleep(3000);
-
-      // 필터 적용 후 페이지 텍스트 변화 확인
-      const afterText = await page.evaluate(() => document.body.innerText.slice(0, 200));
-      console.log('필터 적용 후 페이지 일부:', afterText.replace(/\n/g, ' | '));
+      }
     } else {
-      console.log('⚠️ 강인혁 필터 요소 없음 — 전체 티켓에서 강인혁 담당 필터링');
+      console.log('⚠️ 강인혁 필터 요소 없음 — 전체 티켓에서 진행');
     }
 
     // 무한스크롤 처리
