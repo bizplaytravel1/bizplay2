@@ -442,27 +442,37 @@ async function main() {
           await sleep(1000);
 
           body = await page.evaluate(() => {
-            // 본문으로 볼 수 없는 텍스트 패턴
+            // UI 단어 완전 일치 제외
             const EXCLUDE_EXACT = new Set([
               'Ticket','Chat','Customer','Knowledge','Gadget','Report',
               'Community','Ticket UI','IH','All','Low','Medium','High',
-              'Recently Used','Something went wrong.'
+              'Recently Used','Something went wrong.','Search','Folder',
+              'My response','기본 탬플릿','All Tickets','Create new ticket',
+              'In Progress','Completed','Newly Received','Bulk action',
+              'Assign','Reply','Spam','Delete','View','비즈플레이'
             ]);
+            // 부분 일치 제외
             const EXCLUDE_CONTAINS = [
               'Something went wrong',
               'OQUPIE will automatically',
               'OQUPIE.COM',
               'Recently Used',
               'january february',
-              'sumotuwethfrsa'
+              'sumotuwethfrsa',
+              '비플식권_',   // 템플릿 이름
+              'My response',
+              'template','Template'
             ];
 
             function isBadText(t) {
-              if (!t) return true;
+              if (!t || t.length < 15) return true;           // 15자 미만 제외
               if (EXCLUDE_EXACT.has(t)) return true;
               if (EXCLUDE_CONTAINS.some(s => t.includes(s))) return true;
-              // 달력/요일 UI 패턴
               if (/january|february|march/i.test(t) && t.length > 50) return true;
+              // 줄 대부분이 UI 단어인 경우 제외
+              const lines = t.split('\n').map(l => l.trim()).filter(l => l);
+              const badLines = lines.filter(l => EXCLUDE_EXACT.has(l));
+              if (lines.length > 0 && badLines.length / lines.length > 0.5) return true;
               return false;
             }
 
@@ -478,18 +488,18 @@ async function main() {
             for (const sel of msgSelectors) {
               const el = document.querySelector(sel);
               const t = el ? el.innerText.trim() : '';
-              if (t.length > 20 && !isBadText(t)) return t;
+              if (!isBadText(t)) return t;
             }
 
-            // 2차: 텍스트 블록 중 실제 문의 내용 찾기 (20~2000자, 나쁜 텍스트 제외)
-            const candidates = Array.from(document.querySelectorAll('p, div, td'))
+            // 2차: 텍스트 블록에서 실제 문의 내용 찾기
+            // 조건: 15~1500자, children 5개 미만, 나쁜 텍스트 아님
+            const candidates = Array.from(document.querySelectorAll('p, div, td, section'))
               .map(el => ({ el, t: (el.innerText || '').trim() }))
               .filter(({ el, t }) =>
-                t.length >= 20
-                && t.length <= 2000
+                t.length >= 15
+                && t.length <= 1500
                 && el.children.length < 5
                 && !isBadText(t)
-                && !t.split('\n').every(line => EXCLUDE_EXACT.has(line.trim()))
               )
               .sort((a, b) => b.t.length - a.t.length);
 
