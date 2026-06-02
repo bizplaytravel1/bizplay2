@@ -4111,7 +4111,7 @@ async function oqGenGroq(idx, e) {
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
         body: JSON.stringify({
-          model: 'llama3-70b-8192',
+          model: 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content:
               '당신은 현대자동차 트리플러스 출장관리 전문 상담원입니다.\n' +
