@@ -426,13 +426,27 @@ async function main() {
       });
     });
 
-    console.log(`티켓 ${ticketList.length}개 발견`);
+    console.log(`티켓 ${ticketList.length}개 발견 (날짜 필터 전)`);
+
+    // ── 5일 이내 티켓만 필터링 ──────────────────────────────────
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 5);
+    cutoffDate.setHours(0, 0, 0, 0);
+    console.log(`5일 기준: ${cutoffDate.toISOString().slice(0,10)} 이후 티켓만 크롤링`);
+
+    const filteredList = ticketList.filter(tl => {
+      if (!tl.date_raw) return true; // 날짜 없으면 포함
+      const d = new Date(parseKrDate(tl.date_raw));
+      return d >= cutoffDate;
+    });
+
+    console.log(`날짜 필터 후: ${filteredList.length}개 티켓`);
 
     // ── 각 티켓 상세 ─────────────────────────────────────────────
     const tickets = [];
-    for (let i = 0; i < ticketList.length; i++) {
-      const tl = ticketList[i];
-      console.log(`[${i + 1}/${ticketList.length}] ${tl.num} ${tl.subject}`);
+    for (let i = 0; i < filteredList.length; i++) {
+      const tl = filteredList[i];
+      console.log(`[${i + 1}/${filteredList.length}] ${tl.num} ${tl.subject}`);
 
       let body = '';
       const ticketId = tl.num.replace('#', '').trim();
@@ -525,22 +539,54 @@ async function main() {
               // 이름 - Ticket ... 패턴
               text = text.replace(/\n.+? - Ticket [\s\S]*/m, '').trim();
 
-              // 3) 줄 단위 필터링
+              // 3) 추가정보 값 패턴 제거 (Python dict, 전화번호, ID 등)
+              text = text.replace(/^\{'.+?':.+?\}$/gm, '');           // {'key': 'value'} Python dict
+              text = text.replace(/^\{".+?": .+?\}$/gm, '');          // {"key": "value"} JSON
+              text = text.replace(/^\+\+82-[\d-]+$/gm, '');           // ++82-010-xxxx 전화번호
+              text = text.replace(/^\+82-[\d-]+$/gm, '');             // +82-010-xxxx 전화번호
+              text = text.replace(/^\d{9,11}$/gm, '');                // 9~11자리 순수 숫자 (사번, 연락처)
+              text = text.replace(/^[A-Za-z].+ v\d+\.\d+.*$/gm, ''); // "Portal Finder v1.0.0" SDK 버전
+              text = text.replace(/^\d{10}$/gm, '');                  // 10자리 exp 타임스탬프
+              text = text.replace(/^\|\s*\d{4}-\d{2}-\d{2}.*$/gm, ''); // | YYYY-MM-DD 타임스탬프
+
+              // 4) 줄 단위 필터링
               const lines = text.split('\n').map(l => l.trim()).filter(l => l);
               const kept = lines.filter(l => {
                 if (SKIP_LINES.has(l)) return false;
                 if (/^\d{4}-\d{2}-\d{2}$/.test(l)) return false;    // 날짜 단독
                 if (/^\d{2}:\d{2}$/.test(l)) return false;            // 시간 단독
                 if (/^\|\s*\d{2}:\d{2}/.test(l)) return false;        // | 14:02
+                if (/^\|\s*\d{4}-\d{2}-\d{2}/.test(l)) return false;  // | YYYY-MM-DD
                 if (/^[A-Z]{2}$/.test(l)) return false;               // 이니셜
-                if (/^\+82/.test(l)) return false;                     // 전화번호
+                if (/^\+{1,2}82/.test(l)) return false;               // +82/++82 전화번호
+                if (/^\d{7,11}$/.test(l)) return false;               // 7~11자리 ID/사번
                 if (l.includes('@') && !l.includes(' ')) return false; // 이메일 단독
                 if (/\d{2}:\d{2}\s+(Ticket|Reply|Assign)/.test(l)) return false;
                 if (/.+\s*-\s*(Ticket|Reply|Forward)/.test(l)) return false;
+                if (/^\{.+\}$/.test(l)) return false;                  // {dict} 형태
                 return true;
               });
 
               return kept.join('\n').trim();
+            }
+
+            // ── Additional information 섹션을 DOM에서 제거 ──────────
+            function removeAdditionalInfo(root) {
+              const allEls = Array.from(root.querySelectorAll('*'));
+              for (const el of allEls) {
+                const t = (el.innerText || el.textContent || '').trim();
+                // "추가 정보 (13)" 또는 "Additional information (13)" 헤더 찾기
+                if (/^(추가 정보|Additional information)(\s*\(\d+\))?$/.test(t) && t.length < 35) {
+                  // 이 헤더의 부모 섹션 전체 제거 (최대 5단계 위)
+                  let section = el;
+                  for (let i = 0; i < 5; i++) {
+                    if (!section.parentElement || section.parentElement === root || section.parentElement === document.body) break;
+                    section = section.parentElement;
+                  }
+                  if (section !== root) section.remove();
+                  break;
+                }
+              }
             }
 
             // ── 마커 기반 추출 ────────────────────────────────────────
@@ -554,6 +600,8 @@ async function main() {
                 const r = container.getBoundingClientRect();
                 if (r.width > 300 && r.height > 50) break;
               }
+              // 추가정보 섹션 제거 후 텍스트 추출
+              removeAdditionalInfo(container);
               const raw = (container.innerText || '').trim();
               const cleaned = cleanBody(raw);
               if (cleaned.length >= 5) return cleaned;
