@@ -457,137 +457,115 @@ async function main() {
           await sleep(1000);
 
           body = await page.evaluate(() => {
-            // ── 추가정보 필드명 제외 목록 ─────────────────────────────
-            const ADDITIONAL_INFO_FIELDS = new Set([
-              // OQUPIE Additional information (13) 섹션 필드명
-              '근무지','사원번호','연락처','고객 ID','고객ID','휴대폰 번호','휴대폰번호',
-              '이용기관ID','이용기관 ID','사업자 번호','사업자번호','회사명','exp',
-              '고객 명','고객명','Oqupie SDK version','Oqupie SDK Version',
-              'User ID','UserID','User name','Username','Additional information',
-              // 사이드바/폼 레이블
-              'Brand','Name','Email','Phone','Rate','Channel','Status',
-              'Priority','Tag','Assignee','Group','User','Customer'
-            ]);
-            const EXCLUDE_EXACT = new Set([
+            // ── 제거할 UI/헤더 요소 ──────────────────────────────────
+            const SKIP_LINES = new Set([
+              'General','Follow-up','First inquiry','최초문의',
+              'Forward','Translate','Pro Agent','Agent',
+              'Additional information','추가 정보','추가정보',
               'Ticket','Chat','Customer','Knowledge','Gadget','Report',
               'Community','Ticket UI','All','Low','Medium','High',
-              'Recently Used','Something went wrong.','Search','Folder',
-              'My response','기본 탬플릿','All Tickets','Create new ticket',
-              'In Progress','Completed','Newly Received','Bulk action',
-              'Assign','Reply','Spam','Delete','View','비즈플레이'
+              'Assign','Reply','Spam','Delete','View','Search','Folder',
+              '근무지','사원번호','연락처','고객 ID','휴대폰 번호',
+              '이용기관ID','사업자 번호','회사명','exp','고객 명',
+              'Oqupie SDK version','User ID','User name'
             ]);
-            const EXCLUDE_CONTAINS = [
-              'Something went wrong', 'OQUPIE will automatically',
-              'OQUPIE.COM', 'Recently Used', 'january february',
-              'sumotuwethfrsa', '비플식권_', 'My response'
+
+            // ── 이 텍스트가 나타나면 이후 내용 전부 제거 (이메일 스레드/서명 시작) ──
+            const CUT_AT = [
+              'From:', 'Sent:', '보낸 사람:', '받는 사람:',
+              'T +82', 'M +82', 'F +82',      // 전화번호 서명
+              'www.hyundai.com', 'www.kia.com', // URL 서명
+              'Hyundai Motor', 'Kia Corporation',
+              '주의 : 이 메일은', 'CAUTION : This email',
+              '주의: 이 메일', 'CAUTION: This email',
+              'Attached file', '첨부 파일',
+              '\nTicket created', '\nTicket assigned',
+              '\nReply sent', '\nTicket properties',
             ];
 
-            function hasKorean(t) { return /[가-힣]/.test(t); }
-
-            // 텍스트가 추가정보 섹션 내용인지 확인
-            function isAdditionalInfoText(t) {
-              const lines = t.split('\n').map(l => l.trim()).filter(l => l);
-              const infoLines = lines.filter(l => ADDITIONAL_INFO_FIELDS.has(l));
-              // 줄의 30% 이상이 추가정보 필드명이면 제외
-              return lines.length > 0 && infoLines.length / lines.length >= 0.3;
+            // ── "최초문의" / "First inquiry" 마커 찾기 ────────────────
+            function findMarker() {
+              const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+              let node;
+              while ((node = walker.nextNode())) {
+                const t = (node.nodeValue || '').trim();
+                if (t === '최초문의' || t === 'First inquiry') return node.parentElement;
+              }
+              return null;
             }
 
-            function isBadText(t) {
-              if (!t || t.length < 15) return true;
-              if (EXCLUDE_EXACT.has(t)) return true;
-              if (EXCLUDE_CONTAINS.some(s => t.includes(s))) return true;
-              if (/january|february|march/i.test(t) && t.length > 50) return true;
-              if (isAdditionalInfoText(t)) return true;
-              return false;
+            // ── 원문 텍스트 정제 ───────────────────────────────────────
+            function cleanBody(raw) {
+              if (!raw) return '';
+
+              // 1) 이메일 스레드/서명 시작 지점에서 자르기
+              let text = raw;
+              for (const cut of CUT_AT) {
+                const idx = text.indexOf(cut);
+                if (idx >= 0) text = text.slice(0, idx);
+              }
+
+              // 2) 정규식 패턴으로 자르기
+              // 이메일 서명: "감사합니다." 뒤에 이름+영문이름 패턴
+              text = text.replace(/\n감사합니다\.?\n[\s\S]*/m, '').trim();
+              text = text.replace(/\n(Thank you|Best regards|Regards|Sincerely)[\s\S]*/im, '').trim();
+              // 타임라인 이벤트
+              text = text.replace(/\n\d{2}:\d{2}\s+(Ticket|Reply|Forward|Assign)[\s\S]*/m, '').trim();
+              text = text.replace(/\n\d{4}-\d{2}-\d{2}\n\d{2}:\d{2}[\s\S]*/m, '').trim();
+              // 담당자 답변 헤더 (이니셜 2글자 단독 줄)
+              text = text.replace(/\n[A-Z]{2}\n[\s\S]*/m, '').trim();
+              // 이름 - Ticket ... 패턴
+              text = text.replace(/\n.+? - Ticket [\s\S]*/m, '').trim();
+
+              // 3) 줄 단위 필터링
+              const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+              const kept = lines.filter(l => {
+                if (SKIP_LINES.has(l)) return false;
+                if (/^\d{4}-\d{2}-\d{2}$/.test(l)) return false;    // 날짜 단독
+                if (/^\d{2}:\d{2}$/.test(l)) return false;            // 시간 단독
+                if (/^\|\s*\d{2}:\d{2}/.test(l)) return false;        // | 14:02
+                if (/^[A-Z]{2}$/.test(l)) return false;               // 이니셜
+                if (/^\+82/.test(l)) return false;                     // 전화번호
+                if (l.includes('@') && !l.includes(' ')) return false; // 이메일 단독
+                if (/\d{2}:\d{2}\s+(Ticket|Reply|Assign)/.test(l)) return false;
+                if (/.+\s*-\s*(Ticket|Reply|Forward)/.test(l)) return false;
+                return true;
+              });
+
+              return kept.join('\n').trim();
             }
 
-            // ── 1차: "최초문의" 마커 탐색 — 가장 신뢰도 높은 방법 ────
-            // "최초문의" 텍스트를 포함한 요소를 찾고, 그 조상 컨테이너에서
-            // "추가 정보" 섹션 이전의 텍스트 블록을 추출
-            const allNodes = Array.from(document.querySelectorAll('*'));
-
-            // "최초문의" 마커 요소 찾기
-            const marker = allNodes.find(el => {
-              const t = (el.innerText || '').trim();
-              return t === '최초문의' || t.endsWith('최초문의');
-            });
-
+            // ── 마커 기반 추출 ────────────────────────────────────────
+            const marker = findMarker();
             if (marker) {
-              // 마커의 부모 섹션(메시지 카드) 찾기
-              let section = marker;
-              for (let i = 0; i < 8; i++) {
-                if (!section.parentElement) break;
-                section = section.parentElement;
-                const rect = section.getBoundingClientRect();
-                if (rect.width > 200 && rect.height > 60) break;
+              // 마커의 메시지 컨테이너 찾기 (충분한 크기의 부모)
+              let container = marker;
+              for (let i = 0; i < 10; i++) {
+                if (!container.parentElement) break;
+                container = container.parentElement;
+                const r = container.getBoundingClientRect();
+                if (r.width > 300 && r.height > 50) break;
               }
-
-              // 해당 섹션 내에서 추가정보 이전 텍스트 추출
-              // "추가 정보" 또는 "Additional information" 이후 내용 제거
-              let rawText = (section.innerText || '').trim();
-
-              // 최초문의 이후 내용 구분자 — 해당 위치 이후 텍스트 제거
-              // (추가정보 섹션, 답변 메시지 등)
-              const cutSeparators = [
-                '추가 정보', 'Additional information', '추가정보',
-                // 답변/회신 구분자
-                '\n답변\n', '\n답장\n', '\n회신\n',
-                '\nRe:', '\nRE:',
-                // 타임스탬프가 붙은 답변 구분 패턴은 아래 정규식으로 처리
-              ];
-              for (const sep of cutSeparators) {
-                const idx = rawText.indexOf(sep);
-                if (idx > 20) {
-                  rawText = rawText.slice(0, idx).trim();
-                  break;
-                }
-              }
-              // 정규식으로 "날짜 + 답변/회신" 패턴 이후 제거
-              // 예: "2026-06-01 13:52\n답변" 형태
-              rawText = rawText.replace(/\d{4}-\d{2}-\d{2}[\s\S]{0,30}?(답변|답장|회신|Reply|reply)[\s\S]*/m, '').trim();
-
-              // "최초문의" 헤더 줄 제거 (발신자 이름, 날짜, "최초문의" 텍스트 포함 줄)
-              const lines = rawText.split('\n').map(l => l.trim()).filter(l => l);
-              // 앞 1~3줄이 헤더인 경우 건너뜀 (짧은 줄 + "최초문의" 포함)
-              let startIdx = 0;
-              for (let i = 0; i < Math.min(3, lines.length); i++) {
-                if (lines[i].includes('최초문의') || lines[i].length < 30) {
-                  startIdx = i + 1;
-                } else break;
-              }
-              const bodyLines = lines.slice(startIdx).filter(l =>
-                !ADDITIONAL_INFO_FIELDS.has(l) && !EXCLUDE_EXACT.has(l)
-              );
-              const extracted = bodyLines.join('\n').trim();
-              if (extracted.length >= 15 && hasKorean(extracted)) return extracted;
+              const raw = (container.innerText || '').trim();
+              const cleaned = cleanBody(raw);
+              if (cleaned.length >= 5) return cleaned;
             }
 
-            // ── 2차: CSS class 기반 메시지 탐색 ─────────────────────
-            const msgSelectors = [
-              '[class*="message-body"]', '[class*="messageBody"]',
-              '[class*="ticket-body"]',  '[class*="ticketBody"]',
-              '[class*="content-body"]', '[class*="first-message"]',
-              '[class*="mail-body"]',    '[class*="msg-content"]',
-              '[class*="message-content"]'
+            // ── fallback: CSS 클래스 탐색 ────────────────────────────
+            const selectors = [
+              '[class*="message-body"]','[class*="messageBody"]',
+              '[class*="ticket-body"]','[class*="first-message"]',
+              '[class*="mail-body"]','[class*="msg-content"]',
             ];
-            for (const sel of msgSelectors) {
+            for (const sel of selectors) {
               const el = document.querySelector(sel);
-              const t = el ? el.innerText.trim() : '';
-              if (!isBadText(t) && hasKorean(t)) return t;
+              if (el) {
+                const cleaned = cleanBody(el.innerText || '');
+                if (cleaned.length >= 5) return cleaned;
+              }
             }
 
-            // ── 3차: 한글 포함 텍스트 중 추가정보 제외한 가장 긴 것 ──
-            const candidates = Array.from(document.querySelectorAll('p, div, td'))
-              .map(el => ({ el, t: (el.innerText || '').trim() }))
-              .filter(({ el, t }) =>
-                t.length >= 15 && t.length <= 1500
-                && el.children.length < 5
-                && hasKorean(t)
-                && !isBadText(t)
-              )
-              .sort((a, b) => b.t.length - a.t.length);
-
-            return candidates[0] ? candidates[0].t : '';
+            return '';
           });
 
           // 목록 복귀 (SPA이므로 history.back() 먼저 시도)
