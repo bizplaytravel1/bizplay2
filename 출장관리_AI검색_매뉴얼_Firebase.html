@@ -4766,10 +4766,11 @@ function _oqRender(data) {
     html += '</div><span class="oq-tarrow">&#9660;</span></div>';
 
     html += '<div class="oq-tbody">';
-    // 원문 문의 내용
-    if (t.body && t.body.trim()) {
+    // 원문 문의 내용 (클라이언트 사이드 정제 적용)
+    var displayBody = _oqCleanBody(t.body || '');
+    if (displayBody) {
       html += '<div class="oq-sec">원문 문의</div>';
-      html += '<div class="oq-original">'+esc(t.body.trim())+'</div>';
+      html += '<div class="oq-original">'+esc(displayBody)+'</div>';
     }
     // 답변 초안 버튼 (클릭 시 생성)
     html += '<div id="oq-area-'+i+'" style="margin-top:12px">';
@@ -4809,6 +4810,10 @@ function _oqCleanBody(raw) {
   text = text.replace(/\n.+? - Ticket [\s\S]*/m, '').trim();
   text = text.replace(/\n[A-Z]{2}\n[\s\S]*/m, '').trim(); // 이니셜(UL, JH...)
 
+  // "Additional information (숫자)" 패턴 제거
+  text = text.replace(/Additional information\s*\(\d+\)/g, '').trim();
+  text = text.replace(/추가 정보\s*\(\d+\)/g, '').trim();
+
   // 줄 단위 필터
   var skipLines = new Set([
     'General','Follow-up','First inquiry','최초문의',
@@ -4816,16 +4821,33 @@ function _oqCleanBody(raw) {
     'Additional information','추가 정보'
   ]);
   var lines = text.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l; });
+
+  // 첫 줄이 짧은 한글 이름 + 다음 줄이 타임스탬프이면 이름 줄 제거
+  // (OQUPIE 메시지 헤더: 고객이름\n| YYYY-MM-DD HH:MM)
+  var startIdx = 0;
+  if (lines.length >= 2) {
+    var firstLine = lines[0];
+    var secondLine = lines[1];
+    // 첫 줄: 한글 2~6자 (이름) 또는 날짜/시간 포함
+    var isName = /^[가-힣]{2,6}$/.test(firstLine) || /^[가-힣\s]{2,10}$/.test(firstLine);
+    var nextIsTime = /^\|\s*\d{4}-\d{2}-\d{2}/.test(secondLine) || /^\d{4}-\d{2}-\d{2}/.test(secondLine);
+    if (isName && nextIsTime) startIdx = 1;
+  }
+  lines = lines.slice(startIdx);
+
   var kept = lines.filter(function(l) {
+    if (!l) return false;
     if (skipLines.has(l)) return false;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(l)) return false;
-    if (/^\d{2}:\d{2}$/.test(l)) return false;
-    if (/^\|\s*\d{2}:\d{2}/.test(l)) return false;
-    if (/^[A-Z]{2}$/.test(l)) return false;
-    if (/^\+82/.test(l)) return false;
-    if (l.includes('@') && !l.includes(' ')) return false; // 이메일 단독
+    if (/^\d{4}-\d{2}-\d{2}$/.test(l)) return false;           // 날짜 단독
+    if (/^\d{2}:\d{2}$/.test(l)) return false;                  // 시간 단독
+    if (/^\|\s*\d{4}-\d{2}-\d{2}/.test(l)) return false;       // | 날짜시간
+    if (/^\|\s*\d{2}:\d{2}/.test(l)) return false;              // | 시간
+    if (/^[A-Z]{2}$/.test(l)) return false;                     // 이니셜
+    if (/^\+82/.test(l)) return false;                           // 전화번호
+    if (l.includes('@') && !l.includes(' ')) return false;       // 이메일 단독
     if (/\d{2}:\d{2}\s+(Ticket|Reply|Assign)/.test(l)) return false;
     if (/.+\s*-\s*(Ticket|Reply|Forward)/.test(l)) return false;
+    if (/^Additional information/.test(l)) return false;
     return true;
   });
   return kept.join('\n').trim();
