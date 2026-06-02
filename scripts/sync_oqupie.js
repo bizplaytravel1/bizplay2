@@ -442,16 +442,18 @@ async function main() {
           await sleep(1000);
 
           body = await page.evaluate(() => {
-            // UI 단어 완전 일치 제외
+            // UI 영어 레이블 제외 (사이드바 고객정보 폼)
             const EXCLUDE_EXACT = new Set([
               'Ticket','Chat','Customer','Knowledge','Gadget','Report',
-              'Community','Ticket UI','IH','All','Low','Medium','High',
+              'Community','Ticket UI','All','Low','Medium','High',
               'Recently Used','Something went wrong.','Search','Folder',
               'My response','기본 탬플릿','All Tickets','Create new ticket',
               'In Progress','Completed','Newly Received','Bulk action',
-              'Assign','Reply','Spam','Delete','View','비즈플레이'
+              'Assign','Reply','Spam','Delete','View','비즈플레이',
+              // 사이드바 고객정보 폼 레이블
+              'Brand','Name','Email','Phone','UserID','Rate','User',
+              'Channel','Status','Priority','Tag','Assignee','Group'
             ]);
-            // 부분 일치 제외
             const EXCLUDE_CONTAINS = [
               'Something went wrong',
               'OQUPIE will automatically',
@@ -459,24 +461,29 @@ async function main() {
               'Recently Used',
               'january february',
               'sumotuwethfrsa',
-              '비플식권_',   // 템플릿 이름
-              'My response',
-              'template','Template'
+              '비플식권_',
+              'My response'
             ];
+            // 사이드바 폼 레이블 패턴 (Brand\nName\nEmail... 형태)
+            const FORM_LABELS = ['Brand','Name','Email','Phone','UserID','Rate','Channel','Status'];
+
+            function hasKorean(t) {
+              return /[가-힣]/.test(t);  // 한글 포함 여부
+            }
 
             function isBadText(t) {
-              if (!t || t.length < 15) return true;           // 15자 미만 제외
+              if (!t || t.length < 15) return true;
               if (EXCLUDE_EXACT.has(t)) return true;
               if (EXCLUDE_CONTAINS.some(s => t.includes(s))) return true;
               if (/january|february|march/i.test(t) && t.length > 50) return true;
-              // 줄 대부분이 UI 단어인 경우 제외
               const lines = t.split('\n').map(l => l.trim()).filter(l => l);
-              const badLines = lines.filter(l => EXCLUDE_EXACT.has(l));
-              if (lines.length > 0 && badLines.length / lines.length > 0.5) return true;
+              // 줄의 50% 이상이 UI 레이블이면 제외
+              const badLines = lines.filter(l => EXCLUDE_EXACT.has(l) || FORM_LABELS.includes(l));
+              if (lines.length > 0 && badLines.length / lines.length > 0.4) return true;
               return false;
             }
 
-            // 1차: 메시지/본문 class 직접 탐색
+            // ── 1차: 한글 포함 메시지 class 탐색 ────────────────
             const msgSelectors = [
               '[class*="message-body"]', '[class*="messageBody"]',
               '[class*="ticket-body"]',  '[class*="ticketBody"]',
@@ -488,17 +495,34 @@ async function main() {
             for (const sel of msgSelectors) {
               const el = document.querySelector(sel);
               const t = el ? el.innerText.trim() : '';
-              if (!isBadText(t)) return t;
+              if (!isBadText(t) && hasKorean(t)) return t;
             }
 
-            // 2차: 텍스트 블록에서 실제 문의 내용 찾기
-            // 조건: 15~1500자, children 5개 미만, 나쁜 텍스트 아님
-            const candidates = Array.from(document.querySelectorAll('p, div, td, section'))
+            // ── 2차: 한글 포함 + 실제 문의처럼 보이는 텍스트 우선 ──
+            // "최초문의" 텍스트 근처 요소 탐색
+            const allEls = Array.from(document.querySelectorAll('*'));
+            const firstMsgMarker = allEls.find(el =>
+              (el.innerText || '').trim() === '최초문의'
+            );
+            if (firstMsgMarker) {
+              // 마커 이후 형제/부모 요소에서 본문 탐색
+              let cur = firstMsgMarker;
+              for (let i = 0; i < 10; i++) {
+                cur = cur.nextElementSibling || cur.parentElement;
+                if (!cur) break;
+                const t = (cur.innerText || '').trim();
+                if (t.length >= 20 && hasKorean(t) && !isBadText(t)) return t;
+              }
+            }
+
+            // ── 3차: 한글 포함 텍스트 블록 중 가장 긴 것 ───────────
+            const candidates = Array.from(document.querySelectorAll('p, div, td, section, span'))
               .map(el => ({ el, t: (el.innerText || '').trim() }))
               .filter(({ el, t }) =>
-                t.length >= 15
-                && t.length <= 1500
-                && el.children.length < 5
+                t.length >= 20
+                && t.length <= 2000
+                && el.children.length < 6
+                && hasKorean(t)          // 반드시 한글 포함
                 && !isBadText(t)
               )
               .sort((a, b) => b.t.length - a.t.length);
