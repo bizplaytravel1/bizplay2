@@ -2492,7 +2492,19 @@ async function generateAnswer(query, topChunks) {
     return "[자료" + (i+1) + "] " + c.source + "/" + (c.category || "") + "\n" + c.title + "\n" + content;
   }).join("\n---\n");
 
-  var userMsg = "[참고 자료]\n" + context + "\n\n[질문]\n" + query + "\n\n위 자료만 근거로 답변. 반드시 한국어, HTML 태그 금지, markdown만.\n\n🚫 조항 번호(제○조/제○장/○항/○호) 본문·출처 모두 인용 금지.\n\n📋 답변 구조: 결론 1문장 → **굵은 섹션 헤더** + 「**라벨**: 설명.」 형식 불릿 → 비교 필요시 markdown 표 → **유의사항** 섹션 → 📎 [자료명].\n\n질문이 단순하면 답변도 단순하게!";
+  var userMsg =
+    "🚨 [최우선 정책 규칙 — 아래 규칙이 참고 자료보다 우선합니다]\n" +
+    "1. 교통비(KTX 포함) 정산 기준: 출발지/복귀지는 소속 사업장(근무지) 기준. 본가·개인 목적지 방문은 정산 불가.\n" +
+    "2. 주말 미복귀 일비: '미복귀'는 교육지에 그대로 머무는 것. 본가·개인 장소로 이동하면 미복귀가 아니므로 일비 미지급.\n" +
+    "3. 주말 숙박비: 본가 귀가 시 숙박비 미지급. 교육지 잔류(미복귀) 시에만 조직장 승인 후 지급.\n" +
+    "4. 참고 자료에 '가능'이라고 적혀 있어도, 위 규칙에 위배되면 '불가'로 답변해야 함.\n\n" +
+    "[참고 자료]\n" + context +
+    "\n\n[질문]\n" + query +
+    "\n\n위 최우선 규칙을 반드시 지키면서, 참고 자료를 보충 근거로 사용하여 한국어로 정확하게 답변하세요.\n" +
+    "HTML 태그 금지, markdown만 사용.\n" +
+    "🚫 조항 번호(제○조/제○장/○항/○호) 인용 금지.\n" +
+    "📋 답변 구조: 결론 1문장 → **굵은 섹션 헤더** + 불릿 → 비교 필요시 markdown 표 → **유의사항** → 📎 [자료명].\n" +
+    "질문이 단순하면 답변도 단순하게!";
 
   // GROQ_KEY fallback: localStorage oq_groq_key (관리자 페이지에서 저장한 키)
   if (!GROQ_KEY) {
@@ -4794,8 +4806,13 @@ function _oqCleanBody(raw) {
   if (!raw) return '';
   var text = raw;
 
-  // 이메일 스레드/서명 시작 지점에서 자르기
+  // 이메일 스레드/서명/추가정보 시작 지점에서 자르기
   var cutAt = [
+    // 추가정보 섹션 (최우선 — 이후 모든 내용 제거)
+    'Additional information (', '추가 정보 (',
+    'Additional information\n', '추가 정보\n',
+    '\nAdditional information', '\n추가 정보',
+    // 이메일 서명/스레드
     'From:', 'Sent:', '보낸 사람:', '받는 사람:',
     'T +82', 'M +82', 'F +82',
     'www.hyundai.com', 'www.kia.com', 'Hyundai Motor', 'Kia Corp',
@@ -4817,9 +4834,24 @@ function _oqCleanBody(raw) {
   text = text.replace(/\n.+? - Ticket [\s\S]*/m, '').trim();
   text = text.replace(/\n[A-Z]{2}\n[\s\S]*/m, '').trim(); // 이니셜(UL, JH...)
 
-  // "Additional information (숫자)" 패턴 제거
-  text = text.replace(/Additional information\s*\(\d+\)/g, '').trim();
-  text = text.replace(/추가 정보\s*\(\d+\)/g, '').trim();
+  // Additional information / 추가 정보 섹션 — 레이블 이후 모든 내용 제거 (replace 대신 cut)
+  var _aiIdx = -1;
+  ['Additional information', '추가 정보', '추가정보'].forEach(function(phrase) {
+    var idx = text.indexOf(phrase);
+    if (idx >= 0 && (_aiIdx < 0 || idx < _aiIdx)) _aiIdx = idx;
+  });
+  if (_aiIdx >= 0) text = text.slice(0, _aiIdx).trim();
+
+  // 추가정보 값 패턴 제거 (이미 Firebase에 저장된 데이터 정제용)
+  text = text.replace(/^\{'[^']+': '[^']*'\}$/gm, '');     // Python dict {'key': 'value'}
+  text = text.replace(/^\{"[^"]+": "[^"]*"\}$/gm, '');     // JSON {"key": "value"}
+  text = text.replace(/^\{\s*'[^']+'\s*:\s*'[^']*'\s*\}$/gm, ''); // 공백 포함 dict
+  text = text.replace(/^\+\+82-[\d-]+$/gm, '');            // ++82-010-xxxx
+  text = text.replace(/^\+82-[\d-]+$/gm, '');              // +82-010-xxxx
+  text = text.replace(/^\d{9,11}$/gm, '');                 // 9~11자리 순수 숫자 ID
+  text = text.replace(/^\d{10}$/gm, '');                   // 10자리 exp 타임스탬프
+  text = text.replace(/^[A-Za-z].+ v\d+\.\d+.*$/gm, '');  // SDK 버전 (Portal Finder v1.0.0)
+  text = text.replace(/^\|\s*\d{4}-\d{2}-\d{2}.*$/gm, ''); // | YYYY-MM-DD 타임스탬프
 
   // 줄 단위 필터
   var skipLines = new Set([
@@ -4829,16 +4861,17 @@ function _oqCleanBody(raw) {
   ]);
   var lines = text.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l; });
 
-  // 첫 줄이 짧은 한글 이름 + 다음 줄이 타임스탬프이면 이름 줄 제거
-  // (OQUPIE 메시지 헤더: 고객이름\n| YYYY-MM-DD HH:MM)
+  // 첫 줄이 고객 이름/헤더이면 제거
   var startIdx = 0;
-  if (lines.length >= 2) {
+  if (lines.length >= 1) {
     var firstLine = lines[0];
-    var secondLine = lines[1];
-    // 첫 줄: 한글 2~6자 (이름) 또는 날짜/시간 포함
-    var isName = /^[가-힣]{2,6}$/.test(firstLine) || /^[가-힣\s]{2,10}$/.test(firstLine);
-    var nextIsTime = /^\|\s*\d{4}-\d{2}-\d{2}/.test(secondLine) || /^\d{4}-\d{2}-\d{2}/.test(secondLine);
-    if (isName && nextIsTime) startIdx = 1;
+    // 조건 1: 순수 한글 이름 (2~5자) → 석정진, 안중철, 김묘길
+    var isPureName = /^[가-힣]{2,5}$/.test(firstLine);
+    // 조건 2: "이름 직책 팀명" 패턴 → 김묘길 팀장 SDV커뮤니케이션팀
+    var isNameTitle = /^[가-힣]{2,4}\s+(팀장|대리|과장|차장|부장|책임|선임|주임|사원|수석|이사|상무|전무|부사장|사장|연구원|엔지니어)/.test(firstLine);
+    // 조건 3: 첫 줄 이름 + 다음 줄 타임스탬프
+    var nextIsTime = lines.length >= 2 && (/^\|\s*\d{4}-\d{2}-\d{2}/.test(lines[1]) || /^\d{4}-\d{2}-\d{2}/.test(lines[1]));
+    if (isPureName || isNameTitle || (nextIsTime && firstLine.length <= 15)) startIdx = 1;
   }
   lines = lines.slice(startIdx);
 
@@ -4850,11 +4883,14 @@ function _oqCleanBody(raw) {
     if (/^\|\s*\d{4}-\d{2}-\d{2}/.test(l)) return false;       // | 날짜시간
     if (/^\|\s*\d{2}:\d{2}/.test(l)) return false;              // | 시간
     if (/^[A-Z]{2}$/.test(l)) return false;                     // 이니셜
-    if (/^\+82/.test(l)) return false;                           // 전화번호
+    if (/^\+{1,2}82/.test(l)) return false;                      // +82/++82 전화번호
+    if (/^\d{7,11}$/.test(l)) return false;                      // 7~11자리 순수 숫자 ID
     if (l.includes('@') && !l.includes(' ')) return false;       // 이메일 단독
     if (/\d{2}:\d{2}\s+(Ticket|Reply|Assign)/.test(l)) return false;
     if (/.+\s*-\s*(Ticket|Reply|Forward)/.test(l)) return false;
     if (/^Additional information/.test(l)) return false;
+    if (/^\{.+\}$/.test(l)) return false;                        // {dict} 형태
+    if (/^[A-Za-z].+ v\d+\.\d+/.test(l)) return false;          // SDK 버전
     return true;
   });
   return kept.join('\n').trim();
