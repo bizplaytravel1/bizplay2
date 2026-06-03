@@ -330,6 +330,43 @@ async function main() {
       console.log('⚠️ 강인혁 필터 요소 없음 — 전체 티켓에서 진행');
     }
 
+    // ── "Newly Received" (신규/대기) 상태 필터 클릭 ───────────────
+    console.log('대기(Newly Received) 상태 필터 클릭 시도...');
+    try {
+      await page.waitForFunction(
+        () => document.body.innerText.includes('Newly Received') ||
+              document.body.innerText.includes('신규') ||
+              document.body.innerText.includes('대기'),
+        { timeout: 8000, polling: 500 }
+      );
+
+      const statusClicked = await page.evaluate(() => {
+        const keywords = ['Newly Received', '신규 접수', '신규', '대기'];
+        const allEls = Array.from(document.querySelectorAll('*'));
+        for (const kw of keywords) {
+          const el = allEls.find(el => {
+            const t = (el.innerText || '').trim();
+            return t === kw && el.children.length === 0;
+          });
+          if (el) {
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            if (el.parentElement) el.parentElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            return kw;
+          }
+        }
+        return null;
+      });
+
+      if (statusClicked) {
+        console.log(`✅ 상태 필터 클릭: ${statusClicked}`);
+        await sleep(2000);
+      } else {
+        console.log('⚠️ 상태 필터 버튼 미감지 — 전체 상태에서 진행');
+      }
+    } catch (_) {
+      console.log('⚠️ 상태 필터 대기 시간 초과 — 전체 상태에서 진행');
+    }
+
     // 무한스크롤 처리
     let prevHeight = 0;
     for (let i = 0; i < 10; i++) {
@@ -665,32 +702,47 @@ async function main() {
       });
     }
 
-    // ── Firestore 저장 (기존 문서 확인 후 변경분만 저장) ────────
-    if (tickets.length > 0) {
-      console.log(`\nFirestore 저장 중 (중복 체크)...`);
+    // ── Firestore 저장 + 종료/해결 티켓 삭제 ────────────────────
+    console.log(`\nFirestore 동기화 중...`);
 
-      // 기존 저장된 티켓 ID 목록 조회 (1회 읽기)
-      const existingSnap = await db.collection('oqupie_tickets')
-        .select()  // ID만 가져와 읽기 비용 최소화
-        .get();
-      const existingIds = new Set(existingSnap.docs.map(d => d.id));
+    // 기존 저장된 티켓 전체 조회
+    const existingSnap = await db.collection('oqupie_tickets').select().get();
+    const existingIds   = new Set(existingSnap.docs.map(d => d.id));
 
-      const newTickets     = tickets.filter(t => !existingIds.has(t.id));
-      const updatedTickets = tickets.filter(t => existingIds.has(t.id));
+    // 현재 활성(대기) 티켓 ID 목록
+    const activeIds = new Set(tickets.map(t => t.id));
 
-      console.log(`  신규: ${newTickets.length}개 / 업데이트: ${updatedTickets.length}개`);
-
-      // 신규 티켓만 저장
-      const toSave = newTickets.length > 0 ? newTickets : tickets;
+    // ① 종료/해결 티켓 삭제: Firestore에 있지만 현재 활성 목록에 없는 것
+    const toDelete = existingSnap.docs.filter(d => !activeIds.has(d.id));
+    if (toDelete.length > 0) {
+      console.log(`  🗑️ 종료/해결 티켓 삭제: ${toDelete.length}개`);
       const BATCH_SIZE = 499;
-      for (let i = 0; i < toSave.length; i += BATCH_SIZE) {
+      for (let i = 0; i < toDelete.length; i += BATCH_SIZE) {
         const batch = db.batch();
-        toSave.slice(i, i + BATCH_SIZE).forEach(ticket => {
-          const docId = ticket.id || String(Date.now()) + '_' + Math.random().toString(36).slice(2);
-          batch.set(db.collection('oqupie_tickets').doc(docId), ticket, { merge: true });
+        toDelete.slice(i, i + BATCH_SIZE).forEach(doc => {
+          batch.delete(db.collection('oqupie_tickets').doc(doc.id));
+          console.log(`    삭제: ${doc.id}`);
         });
         await batch.commit();
-        console.log(`  배치 저장 완료 (${Math.min(i + BATCH_SIZE, toSave.length)}/${toSave.length})`);
+      }
+    }
+
+    // ② 신규 티켓 저장: 활성 목록에 있지만 Firestore에 없는 것
+    if (tickets.length > 0) {
+      const newTickets = tickets.filter(t => !existingIds.has(t.id));
+      console.log(`  신규: ${newTickets.length}개 / 기존 유지: ${tickets.length - newTickets.length}개`);
+
+      if (newTickets.length > 0) {
+        const BATCH_SIZE = 499;
+        for (let i = 0; i < newTickets.length; i += BATCH_SIZE) {
+          const batch = db.batch();
+          newTickets.slice(i, i + BATCH_SIZE).forEach(ticket => {
+            const docId = ticket.id || String(Date.now()) + '_' + Math.random().toString(36).slice(2);
+            batch.set(db.collection('oqupie_tickets').doc(docId), ticket, { merge: true });
+          });
+          await batch.commit();
+          console.log(`  저장 완료 (${Math.min(i + BATCH_SIZE, newTickets.length)}/${newTickets.length})`);
+        }
       }
     }
 
