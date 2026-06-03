@@ -4639,7 +4639,10 @@ init();
 .oq-tnum{font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;white-space:nowrap;margin-top:2px}
 .oq-tinfo{flex:1;min-width:0}
 .oq-tsubject{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;word-break:break-all}
-.oq-tmeta{font-size:11px;color:var(--text3)}
+.oq-tmeta{font-size:11px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.oq-date-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500;white-space:nowrap}
+.oq-date-in{background:#dbeafe;color:#1d4ed8}
+.oq-date-sync{background:#f0fdf4;color:#15803d}
 .oq-tarrow{color:var(--text3);font-size:12px;margin-top:3px;transition:transform .2s}
 .oq-ticket.open .oq-tarrow{transform:rotate(180deg)}
 .oq-tbody{display:none;padding:16px 18px;border-top:1px solid var(--border)}
@@ -4735,6 +4738,7 @@ function loadOqupiePage(force) {
           from_name:  v.from_name  || '',
           from_email: v.from_email || '',
           created_at: v.created_at || '',
+          synced_at:  v.synced_at  || '',
           status:     v.status     || ''
         };
       });
@@ -4770,18 +4774,31 @@ function _oqRender(data) {
 
   var html = '';
   for (var i = 0; i < _oqTickets.length; i++) {
-    var t    = _oqTickets[i];
-    var meta = [];
-    if (t.from_name)  meta.push(t.from_name);
-    if (t.from_email) meta.push(t.from_email);
-    if (t.created_at) meta.push((t.created_at||'').slice(0,16).replace('T',' '));
+    var t = _oqTickets[i];
+    // 인입일시 (OQUPIE 티켓 생성일)
+    var createdStr  = t.created_at ? (t.created_at).slice(0,16).replace('T',' ') : '';
+    // 크롤링일시
+    var syncedStr   = t.synced_at  ? (t.synced_at).slice(0,16).replace('T','  ') : '';
+    // KST 변환 (UTC → +9)
+    function toKST(isoStr) {
+      if (!isoStr) return '';
+      try {
+        return new Date(isoStr).toLocaleString('ko-KR', { timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false });
+      } catch(e) { return isoStr.slice(0,16).replace('T',' '); }
+    }
+    createdStr = toKST(t.created_at);
+    syncedStr  = toKST(t.synced_at);
 
     html += '<div class="oq-ticket" id="oq-t-'+i+'">';
     html += '<div class="oq-thead" onclick="oqToggle('+i+')">';
     html += '<div class="oq-tnum">#'+esc(t.id||String(i+1))+'</div>';
     html += '<div class="oq-tinfo">';
     html += '<div class="oq-tsubject">'+esc(t.subject||'(제목 없음)')+'</div>';
-    if (meta.length) html += '<div class="oq-tmeta">'+esc(meta.join(' · '))+'</div>';
+    // 날짜 정보: 인입일시 + 크롤링일시 구분 표시
+    html += '<div class="oq-tmeta">';
+    if (createdStr) html += '<span class="oq-date-badge oq-date-in">&#128197; 인입 ' + esc(createdStr) + '</span>';
+    if (syncedStr)  html += '<span class="oq-date-badge oq-date-sync">&#128260; 수집 ' + esc(syncedStr) + '</span>';
+    html += '</div>';
     html += '</div><span class="oq-tarrow">&#9660;</span></div>';
 
     html += '<div class="oq-tbody">';
