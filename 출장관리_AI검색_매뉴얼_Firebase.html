@@ -4643,6 +4643,9 @@ init();
 .oq-date-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500;white-space:nowrap}
 .oq-date-in{background:#dbeafe;color:#1d4ed8}
 .oq-date-sync{background:#f0fdf4;color:#15803d}
+.oq-new-badge{display:inline-block;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:4px;letter-spacing:.05em;margin-right:6px;vertical-align:middle;animation:oqPulse 1.5s ease-in-out infinite}
+@keyframes oqPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.8;transform:scale(1.05)}}
+.oq-ticket-new{border-left:3px solid #f59e0b!important}
 .oq-tarrow{color:var(--text3);font-size:12px;margin-top:3px;transition:transform .2s}
 .oq-ticket.open .oq-tarrow{transform:rotate(180deg)}
 .oq-tbody{display:none;padding:16px 18px;border-top:1px solid var(--border)}
@@ -4798,12 +4801,22 @@ function _oqRender(data) {
     createdStr = toKST(t.created_at);
     syncedStr  = toKST(t.synced_at);
 
-    html += '<div class="oq-ticket" id="oq-t-'+i+'">';
+    // 신규 수집 여부: synced_at이 4시간(크롤링 주기) 이내이면 NEW
+    var isNew = false;
+    if (t.synced_at) {
+      var syncMs = new Date(t.synced_at).getTime();
+      isNew = (Date.now() - syncMs) < 4 * 60 * 60 * 1000;
+    }
+
+    html += '<div class="oq-ticket' + (isNew ? ' oq-ticket-new' : '') + '" id="oq-t-'+i+'">';
     html += '<div class="oq-thead" onclick="oqToggle('+i+')">';
     html += '<div class="oq-tnum">#'+esc(t.id||String(i+1))+'</div>';
     html += '<div class="oq-tinfo">';
-    html += '<div class="oq-tsubject">'+esc(t.subject||'(제목 없음)')+'</div>';
-    // 날짜 정보: 인입일시 + 크롤링일시 구분 표시
+    // 제목 + NEW 배지
+    html += '<div class="oq-tsubject">';
+    if (isNew) html += '<span class="oq-new-badge">NEW</span>';
+    html += esc(t.subject||'(제목 없음)') + '</div>';
+    // 날짜 정보: 인입일시 + 크롤링일시
     html += '<div class="oq-tmeta">';
     if (createdStr) html += '<span class="oq-date-badge oq-date-in">&#128197; 인입 ' + esc(createdStr) + '</span>';
     if (syncedStr)  html += '<span class="oq-date-badge oq-date-sync">&#128260; 수집 ' + esc(syncedStr) + '</span>';
@@ -5033,20 +5046,30 @@ async function oqGenGroq(idx, e) {
           messages: [
             { role: 'system', content:
               '당신은 현대자동차 트리플러스 출장관리 전문 상담원입니다.\n' +
-              '제공된 정책/FAQ를 엄격히 근거로, 정확하고 친절한 답변 이메일을 한국어로 작성하세요.\n\n' +
-              '핵심 규칙:\n' +
-              '- 고객 문의의 각 질문 항목을 개별적으로 명확히 답변할 것\n' +
-              '- 정책에 없는 내용은 절대 추측하지 말고 "별도 문의 필요"로 안내\n' +
-              '- 교통비 정산 기준: 출발지/복귀지는 반드시 소속 사업장(근무지) 기준이며, 개인 사유 이동(본가 방문 등)은 정산 불가\n' +
-              '- 주말 미복귀 일비: 조직장 사전 승인이 있을 때만 지원 가능 (무조건 지원 아님)\n' +
-              '- KTX/교통비: 개인 목적지(본가, 여행지 등) 이동은 정산 불가\n' +
-              '- 답변 형식: 인사말 → 각 질문별 답변 → 마무리 인사 순서\n' +
-              '- 답변만 출력 (메타 코멘트, 설명 없이)'
+              '고객의 문의에 친절하고 따뜻한 말투로, 동시에 명확한 결론을 제공하는 답변 이메일을 작성하세요.\n\n' +
+              '✅ 말투 원칙:\n' +
+              '- 공감하는 표현 사용: "문의 주셔서 감사합니다", "불편을 드려 죄송합니다" 등\n' +
+              '- 딱딱하거나 차가운 표현 금지 — 따뜻하고 도움이 되는 느낌\n' +
+              '- 하지만 결론은 반드시 명확하게: "가능합니다", "불가합니다", "○○하시면 됩니다"\n\n' +
+              '✅ 답변 구조 (필수):\n' +
+              '1. 친절한 인사 + 공감 (1~2줄)\n' +
+              '2. 각 문의 항목에 대해:\n' +
+              '   - 결론 먼저: "○○은 [가능합니다/불가합니다]"\n' +
+              '   - 이유 설명 (1~2줄, 쉬운 말로)\n' +
+              '   - 진행 방법 (해당 시 번호 목록)\n' +
+              '3. 추가 문의 안내 + 따뜻한 마무리 인사\n\n' +
+              '✅ 금지 표현:\n' +
+              '- "검토가 필요합니다", "경우에 따라 다릅니다", "확인이 필요합니다" — 이런 애매한 표현 금지\n' +
+              '- 정책 근거가 없으면 → "해당 사항은 담당 부서에 직접 문의 부탁드립니다"라고 명확히\n\n' +
+              '출장 핵심 정책:\n' +
+              '- 교통비: 출발지/복귀지는 소속 사업장 기준. 개인 이동(본가 등)은 불가\n' +
+              '- 주말 미복귀 일비: 조직장 사전 승인 + 교육지 잔류 시만 가능\n' +
+              '- 답변만 출력 (설명·메타 코멘트 없이)'
             },
             { role: 'user', content:
               '고객 문의:\n' + inquiry + '\n\n' +
-              '관련 정책/FAQ (이 내용을 근거로만 답변하세요):\n' + ctx + '\n\n' +
-              '위 문의의 각 질문 항목에 개별적으로 답변하는 이메일:'
+              '관련 정책/FAQ:\n' + ctx + '\n\n' +
+              '친절하면서도 각 항목의 결론("가능/불가/방법")이 명확한 답변 이메일:'
             }
           ],
           max_tokens: 1200,
