@@ -15,6 +15,11 @@ const db = admin.firestore();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function parseKrDate(str) {
+  // OQUPIE 날짜는 한국시간(KST = UTC+9)으로 표시됨
+  // GitHub Actions는 UTC 환경이므로 new Date()가 UTC로 파싱 → 9시간 앞으로 저장됨
+  // → KST 문자열을 올바른 UTC로 변환하려면 -9시간 보정 필요
+  const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
   if (!str) return new Date().toISOString();
   str = str.trim();
   if (/^\d{2}\/\d{2}$/.test(str)) {
@@ -23,7 +28,11 @@ function parseKrDate(str) {
   str = str.replace(/\./g, '-');
   try {
     const d = new Date(str);
-    if (!isNaN(d)) return d.toISOString();
+    if (!isNaN(d)) {
+      // GitHub Actions(UTC)에서 KST 문자열을 파싱하면 UTC로 처리됨
+      // KST → UTC 변환: -9시간
+      return new Date(d.getTime() - KST_OFFSET_MS).toISOString();
+    }
   } catch (e) {}
   return new Date().toISOString();
 }
