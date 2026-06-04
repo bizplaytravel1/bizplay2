@@ -533,6 +533,32 @@ async function main() {
           } catch (_) {}
           await sleep(1000);
 
+          // ── 최초문의 날짜 추출 ───────────────────────────────────
+          const inquiryDate = await page.evaluate(() => {
+            // "최초문의" 또는 "First inquiry" 텍스트 근처에서 날짜 패턴 찾기
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+            let node;
+            while ((node = walker.nextNode())) {
+              const t = (node.nodeValue || '').trim();
+              if (t === '최초문의' || t === 'First inquiry') {
+                // 이 텍스트 주변 부모 요소에서 날짜 찾기
+                let el = node.parentElement;
+                for (let i = 0; i < 8; i++) {
+                  const text = (el ? el.innerText || '' : '');
+                  const m = text.match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})/);
+                  if (m) return m[1] + ' ' + m[2]; // "YYYY-MM-DD HH:MM"
+                  if (el && el.parentElement) el = el.parentElement;
+                  else break;
+                }
+              }
+            }
+            return null;
+          });
+          if (inquiryDate) {
+            tl.date_raw = inquiryDate; // 목록에서 추출한 날짜를 최초문의 날짜로 교체
+            console.log(`  📅 최초문의 날짜: ${inquiryDate}`);
+          }
+
           body = await page.evaluate(() => {
             // ── 제거할 UI/헤더 요소 ──────────────────────────────────
             const SKIP_LINES = new Set([
