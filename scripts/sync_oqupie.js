@@ -332,40 +332,67 @@ async function main() {
 
     // ── 상태별 티켓 수집 함수 ────────────────────────────────────
     async function collectTicketsByStatus(statusKeywords, label) {
-      // 해당 상태 버튼 클릭
-      const clicked = await page.evaluate((keywords) => {
-        const allEls = Array.from(document.querySelectorAll('*'));
-        for (const kw of keywords) {
-          const el = allEls.find(el => {
-            const t = (el.innerText || '').trim();
-            return t === kw && el.children.length === 0;
-          });
-          if (el) {
-            el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            if (el.parentElement) el.parentElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            return kw;
-          }
-        }
-        return null;
-      }, statusKeywords);
+      // 해당 상태 버튼 클릭 (네비게이션 발생 가능 → Promise.all로 동시 처리)
+      let clicked = null;
+      try {
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {}),
+          page.evaluate((keywords) => {
+            const allEls = Array.from(document.querySelectorAll('*'));
+            for (const kw of keywords) {
+              const el = allEls.find(el => {
+                const t = (el.innerText || '').trim();
+                return t === kw && el.children.length === 0;
+              });
+              if (el) {
+                el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                if (el.parentElement) el.parentElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                window.__clickedStatus = kw;
+                return kw;
+              }
+            }
+            return null;
+          }, statusKeywords)
+        ]);
+        clicked = await page.evaluate(() => window.__clickedStatus || null);
+      } catch (e) {
+        console.log(`  ⚠️ ${label} 클릭 오류: ${e.message}`);
+      }
 
       if (!clicked) {
-        console.log(`  ⚠️ ${label} 버튼 미감지`);
+        console.log(`  ⚠️ ${label} 버튼 미감지 — 건너뜀`);
         return [];
       }
       console.log(`  ✅ ${label} 클릭: ${clicked}`);
-      await sleep(2000);
+      await sleep(2500);
 
-      // 무한스크롤
+      // 페이지 재렌더링 대기
+      try {
+        await page.waitForFunction(
+          () => /\b\d{4,6}\b/.test(document.body.innerText),
+          { timeout: 10000, polling: 500 }
+        );
+      } catch (_) {}
+      await sleep(1000);
+
+      // 무한스크롤 (try-catch로 컨텍스트 파괴 대비)
       let ph = 0;
       for (let i = 0; i < 10; i++) {
-        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-        await sleep(600);
-        const h = await page.evaluate(() => document.body.scrollHeight);
-        if (h === ph) break;
-        ph = h;
+        try {
+          await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+          await sleep(600);
+          const h = await page.evaluate(() => document.body ? document.body.scrollHeight : 0);
+          if (h === ph || h === 0) break;
+          ph = h;
+        } catch (_) { break; }
       }
-      return await extractTicketList();
+
+      try {
+        return await extractTicketList();
+      } catch (e) {
+        console.log(`  ⚠️ ${label} 티켓 추출 오류: ${e.message}`);
+        return [];
+      }
     }
 
     // ── 티켓 목록 추출 함수 (재사용 가능) ───────────────────────
