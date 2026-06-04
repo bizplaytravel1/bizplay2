@@ -4643,6 +4643,7 @@ init();
 .oq-date-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500;white-space:nowrap}
 .oq-date-in{background:#dbeafe;color:#1d4ed8}
 .oq-date-sync{background:#f0fdf4;color:#15803d}
+.oq-slot-header{font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;margin:16px 0 8px;letter-spacing:.03em;display:flex;align-items:center;gap:6px}
 .oq-new-badge{display:inline-block;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:4px;letter-spacing:.05em;margin-right:6px;vertical-align:middle;animation:oqPulse 1.5s ease-in-out infinite}
 @keyframes oqPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.8;transform:scale(1.05)}}
 .oq-ticket-new{border-left:3px solid #f59e0b!important}
@@ -4773,6 +4774,13 @@ function _oqRender(data) {
   var infoEl    = document.getElementById('oq-date-info');
   var selDate   = (document.getElementById('oq-date')||{}).value || '';
 
+  // synced_at 기준으로 정렬 (수집 시간대별 그룹핑을 위해)
+  _oqTickets.sort(function(a, b) {
+    var sa = a.synced_at || '';
+    var sb = b.synced_at || '';
+    return sa < sb ? -1 : sa > sb ? 1 : 0;
+  });
+
   if (cntEl)  cntEl.textContent  = _oqTickets.length + '건';
   if (infoEl) infoEl.textContent = selDate ? selDate + ' 기준' : '';
 
@@ -4784,9 +4792,31 @@ function _oqRender(data) {
     return;
   }
 
+  // ── 수집 시간대 판별 함수 ─────────────────────────────────────
+  function getCrawlSlot(isoStr) {
+    if (!isoStr) return null;
+    var d = new Date(isoStr);
+    var kstHour = (d.getUTCHours() + 9) % 24;
+    if (kstHour >= 9  && kstHour < 13) return { label: '🕘 오전 9시 수집', key: '09', color: '#dbeafe', textColor: '#1d4ed8' };
+    if (kstHour >= 13 && kstHour < 17) return { label: '🕑 오후 1시 수집', key: '13', color: '#fef9c3', textColor: '#854d0e' };
+    if (kstHour >= 17)                  return { label: '🕔 오후 5시 수집', key: '17', color: '#f3e8ff', textColor: '#6b21a8' };
+    return { label: '🌙 이전 수집',  key: '00', color: '#f1f5f9', textColor: '#475569' };
+  }
+
   var html = '';
+  var lastSlotKey = null;
+
   for (var i = 0; i < _oqTickets.length; i++) {
     var t = _oqTickets[i];
+
+    // 수집 시간대 구분선 삽입
+    var slot = getCrawlSlot(t.synced_at);
+    if (slot && slot.key !== lastSlotKey) {
+      lastSlotKey = slot.key;
+      html += '<div class="oq-slot-header" style="background:' + slot.color + ';color:' + slot.textColor + '">'
+            + slot.label
+            + '</div>';
+    }
     // 인입일시 (OQUPIE 티켓 생성일)
     var createdStr  = t.created_at ? (t.created_at).slice(0,16).replace('T',' ') : '';
     // 크롤링일시
