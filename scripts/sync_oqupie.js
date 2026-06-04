@@ -330,18 +330,10 @@ async function main() {
       console.log('⚠️ 강인혁 필터 요소 없음 — 전체 티켓에서 진행');
     }
 
-    // ── "Newly Received" (신규/대기) 상태 필터 클릭 ───────────────
-    console.log('대기(Newly Received) 상태 필터 클릭 시도...');
-    try {
-      await page.waitForFunction(
-        () => document.body.innerText.includes('Newly Received') ||
-              document.body.innerText.includes('신규') ||
-              document.body.innerText.includes('대기'),
-        { timeout: 8000, polling: 500 }
-      );
-
-      const statusClicked = await page.evaluate(() => {
-        const keywords = ['Newly Received', '신규 접수', '신규', '대기'];
+    // ── 상태별 티켓 수집 함수 ────────────────────────────────────
+    async function collectTicketsByStatus(statusKeywords, label) {
+      // 해당 상태 버튼 클릭
+      const clicked = await page.evaluate((keywords) => {
         const allEls = Array.from(document.querySelectorAll('*'));
         for (const kw of keywords) {
           const el = allEls.find(el => {
@@ -355,31 +347,30 @@ async function main() {
           }
         }
         return null;
-      });
+      }, statusKeywords);
 
-      if (statusClicked) {
-        console.log(`✅ 상태 필터 클릭: ${statusClicked}`);
-        await sleep(2000);
-      } else {
-        console.log('⚠️ 상태 필터 버튼 미감지 — 전체 상태에서 진행');
+      if (!clicked) {
+        console.log(`  ⚠️ ${label} 버튼 미감지`);
+        return [];
       }
-    } catch (_) {
-      console.log('⚠️ 상태 필터 대기 시간 초과 — 전체 상태에서 진행');
+      console.log(`  ✅ ${label} 클릭: ${clicked}`);
+      await sleep(2000);
+
+      // 무한스크롤
+      let ph = 0;
+      for (let i = 0; i < 10; i++) {
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        await sleep(600);
+        const h = await page.evaluate(() => document.body.scrollHeight);
+        if (h === ph) break;
+        ph = h;
+      }
+      return await extractTicketList();
     }
 
-    // 무한스크롤 처리
-    let prevHeight = 0;
-    for (let i = 0; i < 10; i++) {
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      await sleep(800);
-      const h = await page.evaluate(() => document.body.scrollHeight);
-      if (h === prevHeight) break;
-      prevHeight = h;
-    }
-
-    // ── 티켓 목록 추출 (OQUPIE 실제 구조 기반) ──────────────────
-    // OQUPIE 행 구조: 고객명 → 이메일 → [제목] → 번호 → 날짜 순
-    const ticketList = await page.evaluate(() => {
+    // ── 티켓 목록 추출 함수 (재사용 가능) ───────────────────────
+    async function extractTicketList() {
+      return await page.evaluate(() => {
       const results = [];
       const NAV_WORDS = new Set([
         'Ticket','Chat','Customer','Knowledge','Gadget','Report',
@@ -456,12 +447,39 @@ async function main() {
 
       // 중복 제거
       const seen2 = new Set();
-      return results.filter(t => {
-        if (!t.num || !t.subject || seen2.has(t.num)) return false;
-        seen2.add(t.num);
-        return true;
-      });
+        return results.filter(t => {
+          if (!t.num || !t.subject || seen2.has(t.num)) return false;
+          seen2.add(t.num);
+          return true;
+        });
+      }); // extractTicketList 끝
+    } // function 끝
+
+    // ── 대기(Newly Received) + 진행(In Progress) 두 상태 수집 ───
+    console.log('\n[1/2] 대기(Newly Received) 티켓 수집...');
+    const listNewlyReceived = await collectTicketsByStatus(
+      ['Newly Received', '신규 접수', '신규', '대기'],
+      '대기'
+    );
+    console.log(`  대기 티켓: ${listNewlyReceived.length}개`);
+
+    console.log('[2/2] 진행(In Progress) 티켓 수집...');
+    const listInProgress = await collectTicketsByStatus(
+      ['In Progress', '진행 중', '진행중', '처리 중'],
+      '진행'
+    );
+    console.log(`  진행 티켓: ${listInProgress.length}개`);
+
+    // 두 목록 합산 후 중복 제거
+    const combined = [...listNewlyReceived, ...listInProgress];
+    const seenNums = new Set();
+    const ticketList = combined.filter(t => {
+      if (!t.num || seenNums.has(t.num)) return false;
+      seenNums.add(t.num);
+      return true;
     });
+
+    console.log(`\n합산: 대기 ${listNewlyReceived.length} + 진행 ${listInProgress.length} = ${ticketList.length}개 (중복 제거 후)`);
 
     console.log(`티켓 ${ticketList.length}개 발견 (날짜 필터 전)`);
 
