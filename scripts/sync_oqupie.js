@@ -482,32 +482,23 @@ async function main() {
       }); // extractTicketList 끝
     } // function 끝
 
-    // ── 대기(Newly Received) + 진행(In Progress) 두 상태 수집 ───
-    console.log('\n[1/2] 대기(Newly Received) 티켓 수집...');
-    const listNewlyReceived = await collectTicketsByStatus(
-      ['Newly Received', '신규 접수', '신규', '대기'],
-      '대기'
-    );
-    console.log(`  대기 티켓: ${listNewlyReceived.length}개`);
+    // ── 강인혁 필터 후 현재 페이지 전체 티켓 수집 ────────────────
+    // (상태 필터 클릭은 네비게이션 충돌 문제로 제거 — 상세 페이지에서 상태 확인)
+    console.log('\n티켓 목록 추출 중...');
 
-    console.log('[2/2] 진행(In Progress) 티켓 수집...');
-    const listInProgress = await collectTicketsByStatus(
-      ['In Progress', '진행 중', '진행중', '처리 중'],
-      '진행'
-    );
-    console.log(`  진행 티켓: ${listInProgress.length}개`);
+    // 무한스크롤 (try-catch로 컨텍스트 파괴 대비)
+    let ph0 = 0;
+    for (let i = 0; i < 10; i++) {
+      try {
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        await sleep(600);
+        const h = await page.evaluate(() => document.body ? document.body.scrollHeight : 0);
+        if (h === ph0 || h === 0) break;
+        ph0 = h;
+      } catch (_) { break; }
+    }
 
-    // 두 목록 합산 후 중복 제거
-    const combined = [...listNewlyReceived, ...listInProgress];
-    const seenNums = new Set();
-    const ticketList = combined.filter(t => {
-      if (!t.num || seenNums.has(t.num)) return false;
-      seenNums.add(t.num);
-      return true;
-    });
-
-    console.log(`\n합산: 대기 ${listNewlyReceived.length} + 진행 ${listInProgress.length} = ${ticketList.length}개 (중복 제거 후)`);
-
+    const ticketList = await extractTicketList().catch(() => []);
     console.log(`티켓 ${ticketList.length}개 발견 (날짜 필터 전)`);
 
     // ── 5일 이내 티켓만 필터링 ──────────────────────────────────
@@ -776,11 +767,24 @@ async function main() {
     // ── Firestore 저장 + 종료/해결 티켓 삭제 ────────────────────
     console.log(`\nFirestore 동기화 중...`);
 
+    // ⚠️ 안전장치: 수집된 티켓이 0개면 삭제 금지 (크롤링 오류 가능성)
+    if (tickets.length === 0) {
+      console.log('⚠️ 안전 모드: 수집된 티켓 0개 → Firestore 삭제 건너뜀');
+      console.log('  (크롤링 문제 가능성 — 기존 데이터 보호)');
+      await db.collection('admin_settings').doc('oqupie').update({
+        last_sync:  new Date().toISOString(),
+        last_count: 0,
+        last_error: '수집 0개 — 안전 모드로 삭제 건너뜀'
+      });
+      console.log('\n✅ 동기화 완료: 0개 (기존 데이터 유지)');
+      return;
+    }
+
     // 기존 저장된 티켓 전체 조회
     const existingSnap = await db.collection('oqupie_tickets').select().get();
     const existingIds   = new Set(existingSnap.docs.map(d => d.id));
 
-    // 현재 활성(대기) 티켓 ID 목록
+    // 현재 활성(대기+진행) 티켓 ID 목록
     const activeIds = new Set(tickets.map(t => t.id));
 
     // ① 종료/해결 티켓 삭제: Firestore에 있지만 현재 활성 목록에 없는 것
