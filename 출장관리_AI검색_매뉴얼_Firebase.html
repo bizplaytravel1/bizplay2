@@ -5038,11 +5038,6 @@ function _oqCollectImgs(top) {
 async function oqGenGroq(idx, e) {
   e.stopPropagation();
   if (_oqBusy[idx]) return;
-  var apiKey = (localStorage.getItem('oq_groq_key')||'').trim();
-  if (!apiKey) {
-    alert('상단 🔑 입력란에 Groq API Key를 입력하고 저장해주세요.\n(무료 발급: https://console.groq.com/keys)');
-    return;
-  }
   var ticket = _oqTickets && _oqTickets[idx];
   if (!ticket) return;
 
@@ -5050,95 +5045,51 @@ async function oqGenGroq(idx, e) {
   var btn = document.getElementById('oq-gbtn-'+idx);
   if (btn) { btn.textContent = '⏳ 생성 중...'; btn.disabled = true; }
 
-  var cleanedBody  = _oqCleanBody(ticket.body || '');
-  // 제목 + 정제된 본문으로 문의 구성
-  var inquiry = '문의 제목: ' + (ticket.subject || '') +
-                (cleanedBody ? '\n\n문의 내용:\n' + cleanedBody : '');
-
-  // ── AI 검색과 동일한 데이터 소스 사용 ─────────────────────────
-  // CHUNKS(triplus-ai-821a7 의미검색) 우선, 없으면 allItems 키워드 검색 fallback
-  var ctx = '';
-  if (CHUNKS && CHUNKS.length > 0) {
-    // AI 검색과 동일한 방식: 의미검색 + 키워드 hybrid
-    var oqChunks = [];
-    try {
-      if (HAS_EMBEDDINGS && GEMINI_KEY) {
-        var semResults = await searchSemantic(ticket.subject + ' ' + cleanedBody, 6);
-        var kwResults  = searchChunksKeyword(ticket.subject + ' ' + cleanedBody, 4);
-        var seenIds = {};
-        semResults.forEach(function(r){ seenIds[r.chunk.id]=true; oqChunks.push(r); });
-        kwResults.forEach(function(k){ if(!seenIds[k.chunk.id]) oqChunks.push(k); });
-      } else {
-        oqChunks = searchChunksKeyword(ticket.subject + ' ' + cleanedBody, 8);
-      }
-    } catch(_) {
-      oqChunks = searchChunksKeyword(ticket.subject + ' ' + cleanedBody, 8);
-    }
-    ctx = oqChunks.slice(0, 8).map(function(x, i) {
-      var c = x.chunk;
-      return '[자료'+(i+1)+'] ' + c.source + '/' + (c.category||'') +
-             '\n' + (c.title||'') + '\n' + (c.content||'').slice(0, 800);
-    }).join('\n---\n');
-  } else {
-    // fallback: allItems 키워드 검색 (기존 방식)
-    var top = _oqScore(ticket);
-    ctx = top.slice(0, 6).map(function(x, i) {
-      var it = x.item;
-      return '[자료'+(i+1)+'] 분류: '+(it.category||it.source||'')+
-             '\nQ: '+(it.question||'').slice(0,300)+
-             '\nA: '+(it.answer||'').slice(0,600);
-    }).join('\n\n');
-  }
-
   try {
-    var resp = await fetch(
-      'https://api.groq.com/openai/v1/chat/completions',
-      {
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            // AI 검색과 동일한 SYSTEM_PROMPT 사용 → 일관된 답변 품질
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content:
-              '🚨 [최우선 정책 규칙]\n' +
-              '1. 교통비: 출발지/복귀지는 소속 사업장 기준. 본가·개인 목적 이동은 정산 불가.\n' +
-              '2. 주말 미복귀 일비: 교육지 잔류 시만 가능. 본가 귀가하면 미지급.\n' +
-              '3. 답변 형식: 문의주셔서 감사합니다 → 결론 먼저("가능/불가") → 이유·방법 → 마무리\n' +
-              '4. 사과 표현 금지("죄송합니다" 등). 문의 내용 그대로 반복 금지.\n\n' +
-              '[고객 문의]\n' + inquiry + '\n\n' +
-              '[관련 정책/FAQ — 이 내용을 근거로 답변]\n' + ctx + '\n\n' +
-              '위 최우선 규칙을 지키며, 친절하고 결론 명확한 답변 이메일:'
-            }
-          ],
-          max_tokens: 1200,
-          temperature: 0.2
-        })
-      }
-    );
-    var data = await resp.json();
-    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-    var generated = data.choices &&
-                    data.choices[0] &&
-                    data.choices[0].message &&
-                    data.choices[0].message.content;
-    if (generated) {
-      // 답변 영역에 결과 표시 (버튼 위치에 draft + 복사 버튼 삽입)
-      var areaEl = document.getElementById('oq-area-'+idx);
-      if (areaEl) {
-        areaEl.innerHTML =
-          '<div class="oq-draft" id="oq-d-'+idx+'" style="background:#f0f0ff;border-color:#c4b5fd;color:#3730a3">'+esc(generated)+'</div>'
-          +'<div class="oq-draft-foot" style="margin-top:10px">'
-          +'<button class="oq-gen-btn" id="oq-gbtn-'+idx+'" onclick="oqGenGroq('+idx+',event)" style="padding:6px 14px;font-size:12px">&#10024; 재생성</button>'
-          +'<button class="oq-copy" onclick="oqCopy('+idx+',event)" style="padding:6px 14px;font-size:12px">&#128203; 복사</button>'
-          +'</div>';
-      }
+    // ── AI 검색과 완전히 동일한 흐름 사용 ──────────────────────────
+    // 1. 쿼리: 제목 + 정제된 본문
+    var cleanedBody = _oqCleanBody(ticket.body || '');
+    var query = (ticket.subject || '') + (cleanedBody ? '\n' + cleanedBody : '');
+
+    // 2. AI 검색과 동일한 방식으로 관련 청크 검색
+    var topChunks;
+    if (CHUNKS && CHUNKS.length > 0 && HAS_EMBEDDINGS) {
+      // 의미검색 + 키워드 hybrid (AI 검색과 동일)
+      var semRes = await searchSemantic(query, 8).catch(function(){ return []; });
+      var kwRes  = searchChunksKeyword(query, 5);
+      var seen = {};
+      var merged = [];
+      semRes.forEach(function(r){ seen[r.chunk.id]=true; merged.push(r); });
+      kwRes.forEach(function(k){ if(!seen[k.chunk.id]) merged.push(k); });
+      topChunks = merged.slice(0, 10);
+    } else if (CHUNKS && CHUNKS.length > 0) {
+      topChunks = searchChunksKeyword(query, 8);
     } else {
-      throw new Error('빈 응답: ' + JSON.stringify(data).slice(0,200));
+      // fallback: allItems → chunks 형태 변환
+      var top = _oqScore(ticket);
+      topChunks = top.slice(0, 8).map(function(x) {
+        return { chunk: { id: x.item._docId||'', source: x.item.source,
+          category: x.item.category||'', title: x.item.question.slice(0,60),
+          content: x.item.answer, search_text: '' }, score: x.sc };
+      });
+    }
+
+    // 3. AI 검색의 generateAnswer() 직접 호출 → 완전히 동일한 답변 생성
+    var generated = await generateAnswer(query, topChunks);
+
+    // 4. AI 검색과 동일한 마크다운 렌더링으로 표시
+    var areaEl = document.getElementById('oq-area-'+idx);
+    if (areaEl && generated) {
+      areaEl.innerHTML =
+        '<div class="oq-draft" id="oq-d-'+idx+'" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px;color:#1e293b;font-size:14px;line-height:1.8;white-space:pre-wrap;word-break:break-word">'
+        + esc(generated) + '</div>'
+        + '<div class="oq-draft-foot" style="margin-top:10px">'
+        + '<button class="oq-gen-btn" id="oq-gbtn-'+idx+'" onclick="oqGenGroq('+idx+',event)" style="padding:6px 14px;font-size:12px">&#10024; 재생성</button>'
+        + '<button class="oq-copy" onclick="oqCopy('+idx+',event)" style="padding:6px 14px;font-size:12px">&#128203; 복사</button>'
+        + '</div>';
     }
   } catch(err) {
-    alert('Groq 오류: ' + err.message);
+    alert('오류: ' + err.message);
     if (btn) { btn.textContent = '⚠ 재시도'; btn.disabled = false; }
   } finally {
     _oqBusy[idx] = false;
