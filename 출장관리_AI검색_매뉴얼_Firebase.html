@@ -5050,20 +5050,45 @@ async function oqGenGroq(idx, e) {
   var btn = document.getElementById('oq-gbtn-'+idx);
   if (btn) { btn.textContent = '⏳ 생성 중...'; btn.disabled = true; }
 
-  var top          = _oqScore(ticket);
   var cleanedBody  = _oqCleanBody(ticket.body || '');
-  // 제목 + 정제된 본문으로 문의 구성 (이메일 서명/스레드 제외)
+  // 제목 + 정제된 본문으로 문의 구성
   var inquiry = '문의 제목: ' + (ticket.subject || '') +
                 (cleanedBody ? '\n\n문의 내용:\n' + cleanedBody : '');
-  // 상위 5개 KB 항목을 전체 내용으로 컨텍스트 구성
-  var ctx = top.slice(0,5).map(function(x,i){
-    var it = x.item;
-    return '['+(i+1)+'] 분류: '+(it.category||it.source||'')+
-           '\n문서명: '+(it.item||'')+
-           '\nQ: '+(it.question||'').slice(0,300)+
-           '\nA: '+(it.answer||'').slice(0,600)+
-           (it.remark ? '\n비고: '+it.remark.slice(0,150) : '');
-  }).join('\n\n');
+
+  // ── AI 검색과 동일한 데이터 소스 사용 ─────────────────────────
+  // CHUNKS(triplus-ai-821a7 의미검색) 우선, 없으면 allItems 키워드 검색 fallback
+  var ctx = '';
+  if (CHUNKS && CHUNKS.length > 0) {
+    // AI 검색과 동일한 방식: 의미검색 + 키워드 hybrid
+    var oqChunks = [];
+    try {
+      if (HAS_EMBEDDINGS && GEMINI_KEY) {
+        var semResults = await searchSemantic(ticket.subject + ' ' + cleanedBody, 6);
+        var kwResults  = searchChunksKeyword(ticket.subject + ' ' + cleanedBody, 4);
+        var seenIds = {};
+        semResults.forEach(function(r){ seenIds[r.chunk.id]=true; oqChunks.push(r); });
+        kwResults.forEach(function(k){ if(!seenIds[k.chunk.id]) oqChunks.push(k); });
+      } else {
+        oqChunks = searchChunksKeyword(ticket.subject + ' ' + cleanedBody, 8);
+      }
+    } catch(_) {
+      oqChunks = searchChunksKeyword(ticket.subject + ' ' + cleanedBody, 8);
+    }
+    ctx = oqChunks.slice(0, 8).map(function(x, i) {
+      var c = x.chunk;
+      return '[자료'+(i+1)+'] ' + c.source + '/' + (c.category||'') +
+             '\n' + (c.title||'') + '\n' + (c.content||'').slice(0, 800);
+    }).join('\n---\n');
+  } else {
+    // fallback: allItems 키워드 검색 (기존 방식)
+    var top = _oqScore(ticket);
+    ctx = top.slice(0, 6).map(function(x, i) {
+      var it = x.item;
+      return '[자료'+(i+1)+'] 분류: '+(it.category||it.source||'')+
+             '\nQ: '+(it.question||'').slice(0,300)+
+             '\nA: '+(it.answer||'').slice(0,600);
+    }).join('\n\n');
+  }
 
   try {
     var resp = await fetch(
@@ -5074,36 +5099,17 @@ async function oqGenGroq(idx, e) {
         body: JSON.stringify({
           model: 'llama-3.3-70b-versatile',
           messages: [
-            { role: 'system', content:
-              '당신은 현대자동차 트리플러스 출장관리 전문 상담원입니다.\n' +
-              '고객의 문의에 친절하고 따뜻한 말투로, 동시에 명확한 결론을 제공하는 답변 이메일을 작성하세요.\n\n' +
-              '✅ 말투 원칙:\n' +
-              '- 인사: "문의 주셔서 감사합니다." (항상 이것으로만 시작)\n' +
-              '- "불편을 드려 죄송합니다" 등 사과 표현 절대 금지 — 문의는 잘못이 아님\n' +
-              '- 고객 질문을 다시 반복하지 말 것 (문의 내용 재인용 금지)\n' +
-              '- 따뜻하고 친절하되, 불필요한 감탄사나 과장된 표현 금지\n' +
-              '- 결론은 반드시 명확하게: "가능합니다", "불가합니다", "○○하시면 됩니다"\n\n' +
-              '✅ 답변 구조 (필수):\n' +
-              '1. "문의 주셔서 감사합니다." (1줄)\n' +
-              '2. 각 문의 항목에 대해:\n' +
-              '   - 결론 먼저: "○○은 [가능합니다/불가합니다]"\n' +
-              '   - 이유 설명 (1~2줄, 쉬운 말로)\n' +
-              '   - 진행 방법 (해당 시 번호 목록)\n' +
-              '3. "추가 문의 사항이 있으시면 언제든지 연락 주세요. 감사합니다." (1줄)\n\n' +
-              '✅ 금지 표현:\n' +
-              '- "불편을 드려 죄송합니다", "죄송합니다", "사과드립니다" — 사과 표현 금지\n' +
-              '- "검토가 필요합니다", "경우에 따라 다릅니다", "확인이 필요합니다" — 애매한 표현 금지\n' +
-              '- 고객 문의 내용을 그대로 반복하는 것 금지\n' +
-              '- 정책 근거가 없으면 → "해당 사항은 담당 부서에 직접 문의 부탁드립니다"\n\n' +
-              '출장 핵심 정책:\n' +
-              '- 교통비: 출발지/복귀지는 소속 사업장 기준. 개인 이동(본가 등)은 불가\n' +
-              '- 주말 미복귀 일비: 조직장 사전 승인 + 교육지 잔류 시만 가능\n' +
-              '- 답변만 출력 (설명·메타 코멘트 없이)'
-            },
+            // AI 검색과 동일한 SYSTEM_PROMPT 사용 → 일관된 답변 품질
+            { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content:
-              '고객 문의:\n' + inquiry + '\n\n' +
-              '관련 정책/FAQ:\n' + ctx + '\n\n' +
-              '친절하면서도 각 항목의 결론("가능/불가/방법")이 명확한 답변 이메일:'
+              '🚨 [최우선 정책 규칙]\n' +
+              '1. 교통비: 출발지/복귀지는 소속 사업장 기준. 본가·개인 목적 이동은 정산 불가.\n' +
+              '2. 주말 미복귀 일비: 교육지 잔류 시만 가능. 본가 귀가하면 미지급.\n' +
+              '3. 답변 형식: 문의주셔서 감사합니다 → 결론 먼저("가능/불가") → 이유·방법 → 마무리\n' +
+              '4. 사과 표현 금지("죄송합니다" 등). 문의 내용 그대로 반복 금지.\n\n' +
+              '[고객 문의]\n' + inquiry + '\n\n' +
+              '[관련 정책/FAQ — 이 내용을 근거로 답변]\n' + ctx + '\n\n' +
+              '위 최우선 규칙을 지키며, 친절하고 결론 명확한 답변 이메일:'
             }
           ],
           max_tokens: 1200,
